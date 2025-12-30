@@ -84,11 +84,9 @@ jobs:
       - name: Restore & Configure Portable System
         run: |
           $portableRoot = "D:\PortableSystem"
-          $username = "TOOLBOXLAP"
-          $userProfile = "C:\Users\$username"
           $userDirs = @("Desktop", "Documents", "Downloads", "Music", "Pictures", "Videos")
           
-          # 1. Restore from Cloud (Safely)
+          # 1. Restore from Cloud
           if (rclone listremotes | Select-String "remote:") {
               Write-Host "Checking for existing backup..."
               $backupExists = $false
@@ -113,40 +111,34 @@ jobs:
               }
           }
 
-          # 3. Redirect 'TOOLBOXLAP' User Shell Folders
-          # Since the user isn't logged in, we verify their profile exists (created in previous step)
-          if (Test-Path "$userProfile\NTUSER.DAT") {
-              Write-Host "Modifying Registry for $username..."
-              
-              # Load User Registry Hive
-              reg load "HKU\TempHive" "$userProfile\NTUSER.DAT"
-              
-              # Define Registry Path in Loaded Hive
-              $regPath = "HKU\TempHive\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders"
-              
-              # Mapping
-              $map = @{
-                  "Desktop" = "$portableRoot\Desktop";
-                  "Personal" = "$portableRoot\Documents";
-                  "{374DE290-123F-4565-9164-39C4925E467B}" = "$portableRoot\Downloads";
-                  "My Music" = "$portableRoot\Music";
-                  "My Pictures" = "$portableRoot\Pictures";
-                  "My Video" = "$portableRoot\Videos"
-              }
-              
-              # Apply Keys
-              foreach ($key in $map.Keys) {
-                  Set-ItemProperty -Path "Registry::$regPath" -Name $key -Value $map[$key] -Type ExpandString -Force
-              }
-              
-              # Unload Hive
-              [gc]::Collect()
-              reg unload "HKU\TempHive"
-              Write-Host "Registry updated for $username."
-          } else {
-              Write-Error "User Profile NTUSER.DAT not found!"
-              exit 1
+          # 3. Create Login Script (Run for User on Login)
+          # We do this because NTUSER.DAT doesn't exist until first login.
+          $loginScriptPath = "C:\Redirect-Profile.ps1"
+          $scriptContent = @"
+          `$portableRoot = '$portableRoot'
+          `$regPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders'
+          `$map = @{
+              'Desktop' = "`$portableRoot\Desktop";
+              'Personal' = "`$portableRoot\Documents";
+              '{374DE290-123F-4565-9164-39C4925E467B}' = "`$portableRoot\Downloads";
+              'My Music' = "`$portableRoot\Music";
+              'My Pictures' = "`$portableRoot\Pictures";
+              'My Video' = "`$portableRoot\Videos"
           }
+          foreach (`$key in `$map.Keys) {
+              Set-ItemProperty -Path `$regPath -Name `$key -Value `$map[`$key] -Type ExpandString -Force
+          }
+          # Restart Explorer to apply immediately
+          Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+          "@
+          Set-Content -Path $loginScriptPath -Value $scriptContent
+
+          # 4. Register Script to Run on Login via HKLM
+          $runKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+          Set-ItemProperty -Path $runKey -Name "RDP_Persistence_Init" -Value "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File $loginScriptPath"
+          
+          Write-Host "Login script registered. Folders will redirect upon user login."
+
 
 
 
