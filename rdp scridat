@@ -225,8 +225,12 @@ jobs:
           $repairScript = @"
           @echo off
           echo Repairing MegaHub Configuration...
-          taskkill /F /IM rclone.exe >nul 2>&1
-          timeout /t 1 /nobreak >nul
+          taskkill /F /IM rclone.exe /T >nul 2>&1
+          timeout /t 2 /nobreak >nul
+          
+          REM Force delete old config to prevent "Rename Access Denied" errors
+          if exist "D:\PortableSystem\rclone.conf" del /F /Q "D:\PortableSystem\rclone.conf"
+          
           C:\ProgramData\chocolatey\bin\rclone.exe config create mega1 mega user itmemugpig@otona.uk pass itmemugpig@otona.uk --non-interactive --config "D:\PortableSystem\rclone.conf"
           C:\ProgramData\chocolatey\bin\rclone.exe config create mega2 mega user b67ebe3c01@webxio.pro pass b67ebe3c01@webxio.pro --non-interactive --config "D:\PortableSystem\rclone.conf"
           C:\ProgramData\chocolatey\bin\rclone.exe config create mega3 mega user d4d8692a49@webxio.pro pass d4d8692a49@webxio.pro --non-interactive --config "D:\PortableSystem\rclone.conf"
