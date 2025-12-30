@@ -158,9 +158,9 @@ jobs:
           # Create 'Upload To Cloud' (Sync Local -> Remote)
           $uploadScript = @"
           @echo off
-          echo Uploading to Cloud Pool (Sync D: -> MegaHub)...
+          echo Uploading to Cloud Pool (Sync D: to MegaHub)...
           echo WARNING: This will DELETE files on Cloud that are not on this PC.
-          C:\ProgramData\chocolatey\bin\rclone.exe sync D:\PortableSystem pool:FullSystem --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --exclude "*.bat"
+          C:\ProgramData\chocolatey\bin\rclone.exe sync D:\PortableSystem pool:FullSystem --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --exclude "*.bat" --no-update-modtime
           echo Done!
           pause
           "@
@@ -169,9 +169,9 @@ jobs:
           # Create 'Download From Cloud' (Copy Remote -> Local)
           $downloadScript = @"
           @echo off
-          echo Downloading from Cloud Pool (Copy MegaHub -> D:)...
+          echo Downloading from Cloud Pool (Copy MegaHub to D:)...
           echo This will add/overwrite files from Cloud to this PC.
-          C:\ProgramData\chocolatey\bin\rclone.exe copy pool:FullSystem D:\PortableSystem --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*"
+          C:\ProgramData\chocolatey\bin\rclone.exe copy pool:FullSystem D:\PortableSystem --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --no-update-modtime
           echo Done!
           pause
           "@
