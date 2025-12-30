@@ -51,6 +51,21 @@ jobs:
               exit 1
           }
 
+      - name: Pre-load User Profile (Skip First Login Wait)
+        run: |
+          Write-Host "Pre-loading Windows User Profile for TOOLBOXLAP..."
+          $password = ConvertTo-SecureString "admin@123" -AsPlainText -Force
+          $cred = New-Object System.Management.Automation.PSCredential ("TOOLBOXLAP", $password)
+          
+          # This command forces Windows to build the user profile (C:\Users\TOOLBOXLAP)
+          # So when you login, you don't wait for "Hi, We're getting things ready..."
+          try {
+              Start-Process powershell.exe -Credential $cred -ArgumentList "-Command `"exit`"" -LoadUserProfile -Wait
+              Write-Host "Profile created successfully!"
+          } catch {
+              Write-Warning "Profile pre-load attempt had a minor issue, but likely triggered creation."
+          }
+
       - name: Install Tailscale
         run: |
           $tsUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
