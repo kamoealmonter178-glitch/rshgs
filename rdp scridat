@@ -84,6 +84,8 @@ jobs:
       - name: Restore & Configure Portable System
         run: |
           $portableRoot = "D:\PortableSystem"
+          $username = "TOOLBOXLAP"
+          $userProfile = "C:\Users\$username"
           $userDirs = @("Desktop", "Documents", "Downloads", "Music", "Pictures", "Videos")
           
           # 1. Restore from Cloud (Safely)
@@ -91,7 +93,6 @@ jobs:
               Write-Host "Checking for existing backup..."
               $backupExists = $false
               try {
-                  # Check if FullSystem exists (suppress error output)
                   rclone lsd remote:FullSystem 2>&1 | Out-Null
                   if ($LASTEXITCODE -eq 0) { $backupExists = $true }
               } catch { $backupExists = $false }
@@ -102,40 +103,50 @@ jobs:
               } else {
                  Write-Warning "No existing backup found (First Run). Skipping restore."
               }
-          } else {
-              Write-Warning "No cloud remote configured. Starting fresh."
           }
 
-          # 2. Initialize Directory Structure (if executing for the first time)
+          # 2. Initialize Directory Structure
           if (-not (Test-Path $portableRoot)) {
               New-Item -Path $portableRoot -ItemType Directory -Force
               foreach ($dir in $userDirs) {
                   New-Item -Path "$portableRoot\$dir" -ItemType Directory -Force
-                  # Move existing files to new location to preserve initial state
-                  Get-ChildItem -Path "$env:USERPROFILE\$dir" | Move-Item -Destination "$portableRoot\$dir" -Force -ErrorAction SilentlyContinue
               }
           }
 
-          # 3. Redirect User Shell Folders via Registry
-          $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders"
-          $map = @{
-              "Desktop" = "$portableRoot\Desktop";
-              "Personal" = "$portableRoot\Documents";
-              "{374DE290-123F-4565-9164-39C4925E467B}" = "$portableRoot\Downloads";
-              "My Music" = "$portableRoot\Music";
-              "My Pictures" = "$portableRoot\Pictures";
-              "My Video" = "$portableRoot\Videos"
+          # 3. Redirect 'TOOLBOXLAP' User Shell Folders
+          # Since the user isn't logged in, we verify their profile exists (created in previous step)
+          if (Test-Path "$userProfile\NTUSER.DAT") {
+              Write-Host "Modifying Registry for $username..."
+              
+              # Load User Registry Hive
+              reg load "HKU\TempHive" "$userProfile\NTUSER.DAT"
+              
+              # Define Registry Path in Loaded Hive
+              $regPath = "HKU\TempHive\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders"
+              
+              # Mapping
+              $map = @{
+                  "Desktop" = "$portableRoot\Desktop";
+                  "Personal" = "$portableRoot\Documents";
+                  "{374DE290-123F-4565-9164-39C4925E467B}" = "$portableRoot\Downloads";
+                  "My Music" = "$portableRoot\Music";
+                  "My Pictures" = "$portableRoot\Pictures";
+                  "My Video" = "$portableRoot\Videos"
+              }
+              
+              # Apply Keys
+              foreach ($key in $map.Keys) {
+                  Set-ItemProperty -Path "Registry::$regPath" -Name $key -Value $map[$key] -Type ExpandString -Force
+              }
+              
+              # Unload Hive
+              [gc]::Collect()
+              reg unload "HKU\TempHive"
+              Write-Host "Registry updated for $username."
+          } else {
+              Write-Error "User Profile NTUSER.DAT not found!"
+              exit 1
           }
-          
-          foreach ($key in $map.Keys) {
-              Set-ItemProperty -Path $regPath -Name $key -Value $map[$key] -Type ExpandString -Force
-          }
-
-          # 4. Restart Explorer to apply changes
-          Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
-          Start-Sleep -Seconds 2
-          if (-not (Get-Process explorer -ErrorAction SilentlyContinue)) { Start-Process explorer }
-          Write-Host "Environment redirected to $portableRoot"
 
 
 
