@@ -138,6 +138,10 @@ jobs:
           Set-ItemProperty -Path $runKey -Name "RDP_Persistence_Init" -Value "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File $loginScriptPath"
           
           Write-Host "Login script registered. Folders will redirect upon user login."
+          
+          # Force clean exit to prevent 'First Run' error code from failing the step
+          exit 0
+
 
 
 
