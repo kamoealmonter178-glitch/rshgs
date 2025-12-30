@@ -93,7 +93,7 @@ jobs:
                   rclone config create $remoteName mega user $u pass $p --non-interactive --config "$portableRoot\rclone.conf"
                   
                   if ($LASTEXITCODE -eq 0) {
-                      $upstreams += "$remoteName`:FullSystem"
+                      $upstreams += "${remoteName}:FullSystem"
                       $i++
                   } else {
                       Write-Warning "Failed to add account: $u"
