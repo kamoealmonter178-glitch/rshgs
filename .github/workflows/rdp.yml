@@ -73,6 +73,12 @@ jobs:
           Write-Host "Configuring Rclone for Mega..."
           rclone config create remote mega user $megaUser pass $megaPass --non-interactive
           
+          # Move Config to Shared Location (so RDP User can see it)
+          $rcloneConfigDir = "$env:USERPROFILE\.config\rclone"
+          if (Test-Path "$rcloneConfigDir\rclone.conf") {
+              Copy-Item "$rcloneConfigDir\rclone.conf" "C:\ProgramData\rclone.conf" -Force
+          }
+          
           # Verify functionality
           if (rclone listremotes | Select-String "remote:") {
               Write-Host "Mega Connected Successfully!"
@@ -118,7 +124,7 @@ jobs:
               $syncScript = @"
           @echo off
           echo Syncing to Cloud...
-          C:\ProgramData\chocolatey\bin\rclone.exe sync D:\PortableSystem remote:FullSystem --transfers=8 --checkers=16 -v
+          C:\ProgramData\chocolatey\bin\rclone.exe sync D:\PortableSystem remote:FullSystem --transfers=8 --checkers=16 -v --config "C:\ProgramData\rclone.conf"
           echo Done!
           pause
           "@
