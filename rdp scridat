@@ -228,15 +228,23 @@ jobs:
           echo ---------------------------------------------------
           
           :: ------------------
-          :: 2. Self-Healing (Rebuild Config if Missing)
+          :: 2. Deep Self-Healing (Full Stack Rebuild)
           :: ------------------
-          echo [Check] Verifying Calculator Logic...
-          C:\ProgramData\chocolatey\bin\rclone.exe listremotes --config "D:\PortableSystem\rclone.conf" | findstr "splitter:" >nul
+          echo [Check] Verifying Integrity (Accounts + Logic)...
+          C:\ProgramData\chocolatey\bin\rclone.exe listremotes --config "D:\PortableSystem\rclone.conf" | findstr "mega1" >nul
           if %errorlevel% neq 0 (
-             echo [Fix] Splitter missing! Rebuilding Calculator Logic...
+             echo [Fix] Critical: Base Accounts missing! Rebuilding ENTIRE MegaHub System...
+             
+             :: Re-create Accounts
+             C:\ProgramData\chocolatey\bin\rclone.exe config create mega1 mega user itmemugpig@otona.uk pass itmemugpig@otona.uk --non-interactive --config "D:\PortableSystem\rclone.conf" >nul 2>&1
+             C:\ProgramData\chocolatey\bin\rclone.exe config create mega2 mega user b67ebe3c01@webxio.pro pass b67ebe3c01@webxio.pro --non-interactive --config "D:\PortableSystem\rclone.conf" >nul 2>&1
+             C:\ProgramData\chocolatey\bin\rclone.exe config create mega3 mega user d4d8692a49@webxio.pro pass d4d8692a49@webxio.pro --non-interactive --config "D:\PortableSystem\rclone.conf" >nul 2>&1
+             
+             :: Re-create Logic
              C:\ProgramData\chocolatey\bin\rclone.exe config create pool union upstreams "mega1:FullSystem mega2:FullSystem mega3:FullSystem" action_policy epall create_policy lfs search_policy ff --non-interactive --config "D:\PortableSystem\rclone.conf" >nul 2>&1
              C:\ProgramData\chocolatey\bin\rclone.exe config create splitter chunker remote pool: chunk_size 256M hash_type md5 --non-interactive --config "D:\PortableSystem\rclone.conf" >nul 2>&1
-             echo [Fix] Done.
+             
+             echo [Fix] System Rebuilt Successfully.
           )
           echo.
           echo [Warm Up] Initializing Remotes Sequentially to prevent Locking...
