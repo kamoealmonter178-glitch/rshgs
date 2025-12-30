@@ -212,12 +212,18 @@ jobs:
           # Create 'Upload To Cloud' (Sync Local -> Remote)
           $uploadScript = @"
           @echo off
-          @echo off
-          echo Uploading to Cloud Pool (Sync D: to MegaHub)...
           echo ---------------------------------------------------
           echo Current Mode: Smart Calculator Logic (LFS + Chunker)
           echo Strategy: Fill tightest gaps first, spill over rest.
           echo ---------------------------------------------------
+          echo.
+          echo [Warm Up] Initializing Remotes Sequentially to prevent Locking...
+          taskkill /F /IM rclone.exe /T >nul 2>&1
+          C:\ProgramData\chocolatey\bin\rclone.exe about mega1: --config "D:\PortableSystem\rclone.conf" >nul 2>&1
+          C:\ProgramData\chocolatey\bin\rclone.exe about mega2: --config "D:\PortableSystem\rclone.conf" >nul 2>&1
+          C:\ProgramData\chocolatey\bin\rclone.exe about mega3: --config "D:\PortableSystem\rclone.conf" >nul 2>&1
+          echo [Warm Up] Done. Starting Sync...
+          echo.
           echo WARNING: This will DELETE files on Cloud that are not on this PC.
           C:\ProgramData\chocolatey\bin\rclone.exe sync D:\PortableSystem splitter: --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --exclude "*.bat" --no-update-modtime
           echo Done!
