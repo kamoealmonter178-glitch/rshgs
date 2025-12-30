@@ -127,11 +127,16 @@ jobs:
 
 
 
-      - name: Establish Tailscale Connection
+      - name: Establish Tailscale Connection (Interactive Link)
         run: |
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID
+          Write-Host "Starting Tailscale..."
+          Write-Host "👉 PLEASE CHECK THE LOGS BELOW FOR THE AUTHENTICATION LINK 👈"
+          Write-Host "Copy the link and paste it in your browser to approve the device."
+          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --hostname=gh-runner-$env:GITHUB_RUN_ID
+          
           $tsIP = $null
           $retries = 0
+
           while (-not $tsIP -and $retries -lt 10) {
               $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
               Start-Sleep -Seconds 5
