@@ -109,27 +109,27 @@ jobs:
               }
           }
 
-          # 2. Initialize Directory Structure
-          if (-not (Test-Path $portableRoot)) {
-              New-Item -Path $portableRoot -ItemType Directory -Force
-              foreach ($dir in $userDirs) {
+          # 2. Initialize Directory Structure (Ensure subdirs exist)
+          # We run this unconditionally because the root might exist from Config step or Rclone restore
+          foreach ($dir in $userDirs) {
+              if (-not (Test-Path "$portableRoot\$dir")) {
                   New-Item -Path "$portableRoot\$dir" -ItemType Directory -Force
               }
-              
-              # Force create the folder on Cloud immediately so user sees it
-              Write-Host "Creating remote folder structure..."
-              rclone mkdir remote:FullSystem
-              
-              # Create 'Sync Now' Shortcut for User
-              $syncScript = @"
+          }
+          
+          # Update Cloud Folder
+          Write-Host "Ensuring remote folder structure..."
+          try { rclone mkdir remote:FullSystem 2>&1 | Out-Null } catch {}
+          
+          # Create 'Sync Now' Shortcut for User (Always update/create)
+          $syncScript = @"
           @echo off
           echo Syncing to Cloud...
           C:\ProgramData\chocolatey\bin\rclone.exe sync D:\PortableSystem remote:FullSystem --transfers=8 --checkers=16 -v --config "D:\PortableSystem\rclone.conf"
           echo Done!
           pause
           "@
-              Set-Content -Path "$portableRoot\Desktop\Force-Sync.bat" -Value $syncScript
-          }
+          Set-Content -Path "$portableRoot\Desktop\Force-Sync.bat" -Value $syncScript
 
           # 3. Create Login Script (Run for User on Login)
           # We do this because NTUSER.DAT doesn't exist until first login.
