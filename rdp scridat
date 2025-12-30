@@ -125,7 +125,7 @@ jobs:
           $syncScript = @"
           @echo off
           echo Syncing to Cloud...
-          C:\ProgramData\chocolatey\bin\rclone.exe sync D:\PortableSystem remote:FullSystem --transfers=8 --checkers=16 -v --config "D:\PortableSystem\rclone.conf"
+          C:\ProgramData\chocolatey\bin\rclone.exe sync D:\PortableSystem remote:FullSystem --transfers=8 --checkers=16 -v --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --exclude "*.bat"
           echo Done!
           pause
           "@
@@ -208,6 +208,12 @@ jobs:
           Write-Host "Powered by https://www.toolboxlap.xyz/"
           Write-Host "========= All rights reserved =========`n"
           while ($true) {
-              Write-Host "[$(Get-Date)] RDP Active - Use Ctrl+C in workflow to terminate"
+              Write-Host "[$(Get-Date)] Syncing changes to Cloud..."
+              try {
+                  & "C:\ProgramData\chocolatey\bin\rclone.exe" sync "D:\PortableSystem" "remote:FullSystem" --transfers=8 --checkers=16 --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --exclude "*.bat" --drive-chunk-size=64M
+              } catch {
+                  Write-Warning "Sync failed: $_"
+              }
+              Write-Host "[$(Get-Date)] RDP Active - Next sync in 5 minutes."
               Start-Sleep -Seconds 300
           }
