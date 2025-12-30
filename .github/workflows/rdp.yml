@@ -258,20 +258,30 @@ jobs:
           
           # "Log Siphon" Method: Redirect to file, then read file to console.
           # This creates a hard bypass for any buffer suppression.
-          $log = "ts_auth.log"
+          # "Log Siphon" Method: Redirect to SEPARATE files (PowerShell constraint).
+          $logOut = "ts_out.log"
+          $logErr = "ts_err.log"
           $argList = "up --hostname=gh-runner-$env:GITHUB_RUN_ID"
-          $p = Start-Process -FilePath "$env:ProgramFiles\Tailscale\tailscale.exe" -ArgumentList $argList -RedirectStandardOutput $log -RedirectStandardError $log -PassThru
+          $p = Start-Process -FilePath "$env:ProgramFiles\Tailscale\tailscale.exe" -ArgumentList $argList -RedirectStandardOutput $logOut -RedirectStandardError $logErr -PassThru
           
-          $lastLen = 0
+          $lastLenOut = 0
+          $lastLenErr = 0
+          
           while (-not $p.HasExited) {
-              if (Test-Path $log) {
-                  $lines = @(Get-Content $log)
-                  if ($lines.Count -gt $lastLen) {
-                      # Print only new lines
-                      for ($k = $lastLen; $k -lt $lines.Count; $k++) {
-                          Write-Host $lines[$k]
-                      }
-                      $lastLen = $lines.Count
+              # Check Stdout
+              if (Test-Path $logOut) {
+                  $lines = @(Get-Content $logOut)
+                  if ($lines.Count -gt $lastLenOut) {
+                      for ($k = $lastLenOut; $k -lt $lines.Count; $k++) { Write-Host "[OUT] $($lines[$k])" }
+                      $lastLenOut = $lines.Count
+                  }
+              }
+              # Check Stderr (Link is usually here)
+              if (Test-Path $logErr) {
+                  $lines = @(Get-Content $logErr)
+                  if ($lines.Count -gt $lastLenErr) {
+                      for ($k = $lastLenErr; $k -lt $lines.Count; $k++) { Write-Host "[ERR] $($lines[$k])" }
+                      $lastLenErr = $lines.Count
                   }
               }
               Start-Sleep -Seconds 3
