@@ -89,7 +89,7 @@ jobs:
                   $p = $matches[2].Trim()
                   $remoteName = "mega$i"
                   
-                  Write-Host "Adding Account $i: $u"
+                  Write-Host "Adding Account ${i}: $u"
                   rclone config create $remoteName mega user $u pass $p --non-interactive --config "$portableRoot\rclone.conf"
                   
                   if ($LASTEXITCODE -eq 0) {
