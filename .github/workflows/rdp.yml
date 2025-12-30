@@ -67,23 +67,56 @@ jobs:
           # Create Config Automatically for MEGA
           # Syntax: rclone config create [name] [type] [key=value]...
           # Note: We use the credentials provided by the user.
-          $megaUser = "itmemugpig@otona.uk"
-          $megaPass = "itmemugpig@otona.uk"
-          
-          Write-Host "Configuring Rclone for Mega..."
-          
-          # Define Portable Root & Ensure it exists
           $portableRoot = "D:\PortableSystem"
           if (-not (Test-Path $portableRoot)) { New-Item -Path $portableRoot -ItemType Directory -Force }
-          
-          # Create Config directly in the portable path
-          rclone config create remote mega user $megaUser pass $megaPass --non-interactive --config "$portableRoot\rclone.conf"
-          
-          # Verify functionality
-          if (rclone listremotes --config "$portableRoot\rclone.conf" | Select-String "remote:") {
-              Write-Host "Mega Connected Successfully!"
+
+          # --- MEGALIST START ---
+          # Add your accounts here. Format: "email : password"
+          $megaAccounts = @(
+              "itmemugpig@otona.uk : itmemugpig@otona.uk",
+              "b67ebe3c01@webxio.pro : b67ebe3c01@webxio.pro",
+              "d4d8692a49@webxio.pro : d4d8692a49@webxio.pro"
+          )
+          # --- MEGALIST END ---
+
+          Write-Host "Configuring MegaHub (Multi-Account Pool)..."
+          $upstreams = @()
+          $i = 1
+
+          foreach ($account in $megaAccounts) {
+              if ($account -match "(.+)\s*:\s*(.+)") {
+                  $u = $matches[1].Trim()
+                  $p = $matches[2].Trim()
+                  $remoteName = "mega$i"
+                  
+                  Write-Host "Adding Account $i: $u"
+                  rclone config create $remoteName mega user $u pass $p --non-interactive --config "$portableRoot\rclone.conf"
+                  
+                  if ($LASTEXITCODE -eq 0) {
+                      $upstreams += "$remoteName`:FullSystem"
+                      $i++
+                  } else {
+                      Write-Warning "Failed to add account: $u"
+                  }
+              }
+          }
+
+          if ($upstreams.Count -gt 0) {
+              # Create Union Remote (The Pool)
+              $upstreamString = $upstreams -join " "
+              Write-Host "Creating Pool with upstreams: $upstreamString"
+              
+              # Policy: epmfs = Existing Path, Most Free Space (Fills drives evenly)
+              rclone config create pool union upstreams "$upstreamString" action_policy epall create_policy epmfs search_policy ff --non-interactive --config "$portableRoot\rclone.conf"
+              
+              if (rclone listremotes --config "$portableRoot\rclone.conf" | Select-String "pool:") {
+                  Write-Host "✅ MegaHub Pool Created Successfully! ($($upstreams.Count) accounts linked)"
+              } else {
+                  Write-Error "Failed to create Pool."
+                  exit 1
+              }
           } else {
-              Write-Error "Failed to connect to Mega."
+              Write-Error "No valid Mega accounts configured!"
               exit 1
           }
 
@@ -94,17 +127,17 @@ jobs:
           
           # 1. Restore from Cloud (Safely)
           # CRITICAL: Use the specific config file path we created earlier
-          if (rclone listremotes --config "$portableRoot\rclone.conf" | Select-String "remote:") {
+          if (rclone listremotes --config "$portableRoot\rclone.conf" | Select-String "pool:") {
               Write-Host "Checking for existing backup..."
               $backupExists = $false
               try {
-                  rclone lsd remote:FullSystem --config "$portableRoot\rclone.conf" 2>&1 | Out-Null
+                  rclone lsd pool:FullSystem --config "$portableRoot\rclone.conf" 2>&1 | Out-Null
                   if ($LASTEXITCODE -eq 0) { $backupExists = $true }
               } catch { $backupExists = $false }
 
               if ($backupExists) {
-                 Write-Host "Restoring Portable System from Cloud..."
-                 rclone copy remote:FullSystem $portableRoot --transfers=8 --checkers=16 --drive-chunk-size=64M -v --config "$portableRoot\rclone.conf"
+                 Write-Host "Restoring Portable System from Cloud Pool..."
+                 rclone copy pool:FullSystem $portableRoot --transfers=16 --checkers=32 --drive-chunk-size=64M -v --config "$portableRoot\rclone.conf"
               } else {
                  Write-Warning "No existing backup found (First Run). Skipping restore."
               }
@@ -120,14 +153,14 @@ jobs:
           
           # Update Cloud Folder
           Write-Host "Ensuring remote folder structure..."
-          try { rclone mkdir remote:FullSystem --config "$portableRoot\rclone.conf" 2>&1 | Out-Null } catch {}
+          try { rclone mkdir pool:FullSystem --config "$portableRoot\rclone.conf" 2>&1 | Out-Null } catch {}
           
           # Create 'Upload To Cloud' (Sync Local -> Remote)
           $uploadScript = @"
           @echo off
-          echo Uploading to Cloud (Sync D: -> Mega)...
+          echo Uploading to Cloud Pool (Sync D: -> MegaHub)...
           echo WARNING: This will DELETE files on Cloud that are not on this PC.
-          C:\ProgramData\chocolatey\bin\rclone.exe sync D:\PortableSystem remote:FullSystem --transfers=8 --checkers=16 -v --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --exclude "*.bat"
+          C:\ProgramData\chocolatey\bin\rclone.exe sync D:\PortableSystem pool:FullSystem --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --exclude "*.bat"
           echo Done!
           pause
           "@
@@ -136,9 +169,9 @@ jobs:
           # Create 'Download From Cloud' (Copy Remote -> Local)
           $downloadScript = @"
           @echo off
-          echo Downloading from Cloud (Copy Mega -> D:)...
+          echo Downloading from Cloud Pool (Copy MegaHub -> D:)...
           echo This will add/overwrite files from Cloud to this PC.
-          C:\ProgramData\chocolatey\bin\rclone.exe copy remote:FullSystem D:\PortableSystem --transfers=8 --checkers=16 -v --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*"
+          C:\ProgramData\chocolatey\bin\rclone.exe copy pool:FullSystem D:\PortableSystem --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*"
           echo Done!
           pause
           "@
