@@ -254,8 +254,9 @@ jobs:
           Write-Host "Starting Tailscale..."
           Write-Host "👉 PLEASE CHECK THE LOGS BELOW FOR THE AUTHENTICATION LINK 👈"
           Write-Host "Copy the link and paste it in your browser to approve the device."
-          # Capture and stream output to ensure the link is visible
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --hostname=gh-runner-$env:GITHUB_RUN_ID 2>&1 | ForEach-Object { Write-Host $_ }
+          Write-Host "Copy the link and paste it in your browser to approve the device."
+          # Use Start-Process with -NoNewWindow to bypass PowerShell buffering and show output immediately
+          Start-Process -FilePath "$env:ProgramFiles\Tailscale\tailscale.exe" -ArgumentList "up --hostname=gh-runner-$env:GITHUB_RUN_ID" -NoNewWindow -Wait
           
           $tsIP = $null
           $retries = 0
