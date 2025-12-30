@@ -46,9 +46,6 @@ jobs:
           Add-LocalGroupMember -Group "Administrators" -Member "TOOLBOXLAP"
           Add-LocalGroupMember -Group "Remote Desktop Users" -Member "TOOLBOXLAP"
           echo "RDP_CREDS=User: TOOLBOXLAP | Password: $password" >> $env:GITHUB_ENV
-              Write-Error "User creation failed"
-              exit 1
-          }
 
           # Create Redirection Script (Pre-Login)
           $scriptContent = @"
