@@ -71,17 +71,13 @@ jobs:
           $megaPass = "itmemugpig@otona.uk"
           
           Write-Host "Configuring Rclone for Mega..."
-          rclone config create remote mega user $megaUser pass $megaPass --non-interactive
           
-          # Move Config to Portable System (Guaranteed access)
-          $rcloneConfigDir = "$env:USERPROFILE\.config\rclone"
-          # Define Portable Root early for this step
-          $portableRoot = "D:\PortableSystem" 
+          # Define Portable Root & Ensure it exists
+          $portableRoot = "D:\PortableSystem"
           if (-not (Test-Path $portableRoot)) { New-Item -Path $portableRoot -ItemType Directory -Force }
-
-          if (Test-Path "$rcloneConfigDir\rclone.conf") {
-              Copy-Item "$rcloneConfigDir\rclone.conf" "$portableRoot\rclone.conf" -Force
-          }
+          
+          # Create Config directly in the portable path
+          rclone config create remote mega user $megaUser pass $megaPass --non-interactive --config "$portableRoot\rclone.conf"
           
           # Verify functionality
           if (rclone listremotes --config "$portableRoot\rclone.conf" | Select-String "remote:") {
