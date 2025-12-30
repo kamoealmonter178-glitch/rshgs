@@ -92,18 +92,19 @@ jobs:
           $portableRoot = "D:\PortableSystem"
           $userDirs = @("Desktop", "Documents", "Downloads", "Music", "Pictures", "Videos")
           
-          # 1. Restore from Cloud
-          if (rclone listremotes | Select-String "remote:") {
+          # 1. Restore from Cloud (Safely)
+          # CRITICAL: Use the specific config file path we created earlier
+          if (rclone listremotes --config "$portableRoot\rclone.conf" | Select-String "remote:") {
               Write-Host "Checking for existing backup..."
               $backupExists = $false
               try {
-                  rclone lsd remote:FullSystem 2>&1 | Out-Null
+                  rclone lsd remote:FullSystem --config "$portableRoot\rclone.conf" 2>&1 | Out-Null
                   if ($LASTEXITCODE -eq 0) { $backupExists = $true }
               } catch { $backupExists = $false }
 
               if ($backupExists) {
                  Write-Host "Restoring Portable System from Cloud..."
-                 rclone copy remote:FullSystem $portableRoot --transfers=8 --checkers=16 --drive-chunk-size=64M -v
+                 rclone copy remote:FullSystem $portableRoot --transfers=8 --checkers=16 --drive-chunk-size=64M -v --config "$portableRoot\rclone.conf"
               } else {
                  Write-Warning "No existing backup found (First Run). Skipping restore."
               }
@@ -119,17 +120,29 @@ jobs:
           
           # Update Cloud Folder
           Write-Host "Ensuring remote folder structure..."
-          try { rclone mkdir remote:FullSystem 2>&1 | Out-Null } catch {}
+          try { rclone mkdir remote:FullSystem --config "$portableRoot\rclone.conf" 2>&1 | Out-Null } catch {}
           
-          # Create 'Sync Now' Shortcut for User (Always update/create)
-          $syncScript = @"
+          # Create 'Upload To Cloud' (Sync Local -> Remote)
+          $uploadScript = @"
           @echo off
-          echo Syncing to Cloud...
+          echo Uploading to Cloud (Sync D: -> Mega)...
+          echo WARNING: This will DELETE files on Cloud that are not on this PC.
           C:\ProgramData\chocolatey\bin\rclone.exe sync D:\PortableSystem remote:FullSystem --transfers=8 --checkers=16 -v --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --exclude "*.bat"
           echo Done!
           pause
           "@
-          Set-Content -Path "$portableRoot\Desktop\Force-Sync.bat" -Value $syncScript
+          Set-Content -Path "$portableRoot\Desktop\Upload-To-Cloud.bat" -Value $uploadScript
+
+          # Create 'Download From Cloud' (Copy Remote -> Local)
+          $downloadScript = @"
+          @echo off
+          echo Downloading from Cloud (Copy Mega -> D:)...
+          echo This will add/overwrite files from Cloud to this PC.
+          C:\ProgramData\chocolatey\bin\rclone.exe copy remote:FullSystem D:\PortableSystem --transfers=8 --checkers=16 -v --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*"
+          echo Done!
+          pause
+          "@
+          Set-Content -Path "$portableRoot\Desktop\Download-From-Cloud.bat" -Value $downloadScript
 
           # 3. Create Login Script (Run for User on Login)
           # We do this because NTUSER.DAT doesn't exist until first login.
