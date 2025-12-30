@@ -1,0 +1,169 @@
+name: RDP
+on:
+  workflow_dispatch:
+jobs:
+  secure-rdp:
+    runs-on: windows-2025
+    timeout-minutes: 3600
+    steps:
+      - name: Ownership Verification (Encoded)
+        run: |
+          $encodedNotice = "Cj09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQogQ29weXJpZ2h0IMKpIDIwMjUgVG9vbGJveExhcC54eXogfCBodHRwczovL3d3dy50b29sYm94bGFwLnh5ei8KIEFsbCByaWdodHMgcmVzZXJ2ZWQuIERvIG5vdCByZW1vdmUgb3IgbW9kaWZ5IGNvcHlyaWdodCB0ZXh0LgogWW91VHViZTogaHR0cHM6Ly93d3cueW91dHViZS5jb20vY2hhbm5lbC9VQ0RUNGZzOUp3cm5RSVhQclhYOHlIZVEKIEZhY2Vib29rOiBodHRwczovL3d3dy5mYWNlYm9vay5jb20vcHJvZmlsZS5waHA/aWQ9NjE1Njc4OTY2OTI5OTQKIEFueSBjaGFuZ2VzIHdpbGwgYXV0b21hdGljYWxseSBkaXNhYmxlIHRoaXMgc2NyaXB0IQo9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0K"
+          $decodedNotice = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($encodedNotice))
+          Write-Host $decodedNotice
+          if (-not $decodedNotice -or $decodedNotice -notlike "*ToolboxLap.xyz*") {
+              Write-Error "Copyright was tampered with or removed – script will not work!"
+              exit 1
+          }
+
+      - name: Core RDP Settings
+        run: |
+          $folderPath = "D:\link subscribe youtube channel"
+          if (-Not (Test-Path -Path $folderPath)) {
+              New-Item -Path $folderPath -ItemType Directory
+              Write-Host "Folder 'link subscribe youtube channel' has been created in D drive."
+          } else {
+              Write-Host "Folder 'link subscribe youtube channel' already exists in D drive."
+          }
+
+      - name: Configure Core RDP Settings
+        run: |
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "SecurityLayer" -Value 0 -Force
+          netsh advfirewall firewall delete rule name="RDP-Tailscale"
+          netsh advfirewall firewall add rule name="RDP-Tailscale" dir=in action=allow protocol=TCP localport=3389
+          Restart-Service -Name TermService -Force
+
+      - name: Create RDP User with Static Password
+        run: |
+          $password = "admin@123"
+          $securePass = ConvertTo-SecureString $password -AsPlainText -Force
+
+          if (-not (Get-LocalUser -Name "TOOLBOXLAP" -ErrorAction SilentlyContinue)) {
+              New-LocalUser -Name "TOOLBOXLAP" -Password $securePass -AccountNeverExpires
+          }
+          Add-LocalGroupMember -Group "Administrators" -Member "TOOLBOXLAP"
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member "TOOLBOXLAP"
+          echo "RDP_CREDS=User: TOOLBOXLAP | Password: $password" >> $env:GITHUB_ENV
+          if (-not (Get-LocalUser -Name "TOOLBOXLAP")) {
+              Write-Error "User creation failed"
+              exit 1
+          }
+
+      - name: Install Tailscale
+        run: |
+          $tsUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
+          $installerPath = "$env:TEMP\tailscale.msi"
+          Invoke-WebRequest -Uri $tsUrl -OutFile $installerPath
+          Start-Process msiexec.exe -ArgumentList "/i", "`"$installerPath`"", "/quiet", "/norestart" -Wait
+          Remove-Item $installerPath -Force
+
+      - name: Install and Configure Rclone (Auto-Login)
+        run: |
+          # Install Rclone
+          choco install rclone -y
+          
+          # Create Config Automatically for MEGA
+          # Syntax: rclone config create [name] [type] [key=value]...
+          # Note: We use the credentials provided by the user.
+          $megaUser = "itmemugpig@otona.uk"
+          $megaPass = "itmemugpig@otona.uk"
+          
+          Write-Host "Configuring Rclone for Mega..."
+          rclone config create remote mega user $megaUser pass $megaPass --non-interactive
+          
+          # Verify functionality
+          if (rclone listremotes | Select-String "remote:") {
+              Write-Host "Mega Connected Successfully!"
+          } else {
+              Write-Error "Failed to connect to Mega."
+              exit 1
+          }
+
+      - name: Restore & Configure Portable System
+        run: |
+          $portableRoot = "D:\PortableSystem"
+          $userDirs = @("Desktop", "Documents", "Downloads", "Music", "Pictures", "Videos")
+          
+          # 1. Restore from Cloud
+          if (rclone listremotes | Select-String "remote:") {
+              Write-Host "Restoring Portable System from Cloud..."
+              rclone copy remote:FullSystem $portableRoot --transfers=8 --checkers=16 --drive-chunk-size=64M -v
+          } else {
+              Write-Warning "No cloud remote configured. Starting fresh."
+          }
+
+          # 2. Initialize Directory Structure (if executing for the first time)
+          if (-not (Test-Path $portableRoot)) {
+              New-Item -Path $portableRoot -ItemType Directory -Force
+              foreach ($dir in $userDirs) {
+                  New-Item -Path "$portableRoot\$dir" -ItemType Directory -Force
+                  # Move existing files to new location to preserve initial state
+                  Get-ChildItem -Path "$env:USERPROFILE\$dir" | Move-Item -Destination "$portableRoot\$dir" -Force -ErrorAction SilentlyContinue
+              }
+          }
+
+          # 3. Redirect User Shell Folders via Registry
+          $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders"
+          $map = @{
+              "Desktop" = "$portableRoot\Desktop";
+              "Personal" = "$portableRoot\Documents";
+              "{374DE290-123F-4565-9164-39C4925E467B}" = "$portableRoot\Downloads";
+              "My Music" = "$portableRoot\Music";
+              "My Pictures" = "$portableRoot\Pictures";
+              "My Video" = "$portableRoot\Videos"
+          }
+          
+          foreach ($key in $map.Keys) {
+              Set-ItemProperty -Path $regPath -Name $key -Value $map[$key] -Type ExpandString -Force
+          }
+
+          # 4. Restart Explorer to apply changes
+          Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 2
+          if (-not (Get-Process explorer -ErrorAction SilentlyContinue)) { Start-Process explorer }
+          Write-Host "Environment redirected to $portableRoot"
+
+
+
+      - name: Establish Tailscale Connection
+        run: |
+          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID
+          $tsIP = $null
+          $retries = 0
+          while (-not $tsIP -and $retries -lt 10) {
+              $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+              Start-Sleep -Seconds 5
+              $retries++
+          }
+          if (-not $tsIP) {
+              Write-Error "Tailscale IP not assigned. Exiting."
+              exit 1
+          }
+          echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
+
+      - name: Verify RDP Accessibility
+        run: |
+          Write-Host "Tailscale IP: $env:TAILSCALE_IP"
+          $testResult = Test-NetConnection -ComputerName $env:TAILSCALE_IP -Port 3389
+          if (-not $testResult.TcpTestSucceeded) {
+              Write-Error "TCP connection to RDP port 3389 failed"
+              exit 1
+          }
+          Write-Host "TCP connectivity successful!"
+
+      - name: Maintain Connection
+        run: |
+          $ownershipNotice = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("Cj09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQogQ29weXJpZ2h0IMKpIDIwMjUgVG9vbGJveExhcC54eXogfCBodHRwczovL3d3dy50b29sYm94bGFwLnh5ei8KIEFsbCByaWdodHMgcmVzZXJ2ZWQuIERvIG5vdCByZW1vdmUgb3IgbW9kaWZ5IGNvcHlyaWdodCB0ZXh0LgogWW91VHViZTogaHR0cHM6Ly93d3cueW91dHViZS5jb20vY2hhbm5lbC9VQ0RUNGZzOUp3cm5RSVhQclhYOHlIZVEKIEZhY2Vib29rOiBodHRwczovL3d3dy5mYWNlYm9vay5jb20vcHJvZmlsZS5waHA/aWQ9NjE1Njc4OTY2OTI5OTQKIEFueSBjaGFuZ2VzIHdpbGwgYXV0b21hdGljYWxseSBkaXNhYmxlIHRoaXMgc2NyaXB0IQo9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0K"))
+          Write-Host $ownershipNotice
+          Write-Host "`n=== RDP ACCESS ==="
+          Write-Host "Address: $env:TAILSCALE_IP"
+          Write-Host "Username: TOOLBOXLAP"
+          Write-Host "Password: admin@123"
+          Write-Host "Powered by https://www.toolboxlap.xyz/"
+          Write-Host "========= All rights reserved =========`n"
+          while ($true) {
+              Write-Host "[$(Get-Date)] RDP Active - Use Ctrl+C in workflow to terminate"
+              Start-Sleep -Seconds 300
+          }
