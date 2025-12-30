@@ -110,6 +110,7 @@ jobs:
                   if ($LASTEXITCODE -eq 0) {
                       $upstreams += "${remoteName}:FullSystem"
                       $i++
+                      Start-Sleep -Milliseconds 500 # Prevent file locking
                   } else {
                       Write-Warning "Failed to add account: $u"
                   }
@@ -191,6 +192,19 @@ jobs:
           pause
           "@
           Set-Content -Path "$portableRoot\Desktop\Download-From-Cloud.bat" -Value $downloadScript
+
+          # Create 'Repair MegaHub' batch file (Panic Button)
+          $repairScript = @"
+          @echo off
+          echo Repairing MegaHub Configuration...
+          C:\ProgramData\chocolatey\bin\rclone.exe config create mega1 mega user itmemugpig@otona.uk pass itmemugpig@otona.uk --non-interactive --config "D:\PortableSystem\rclone.conf"
+          C:\ProgramData\chocolatey\bin\rclone.exe config create mega2 mega user b67ebe3c01@webxio.pro pass b67ebe3c01@webxio.pro --non-interactive --config "D:\PortableSystem\rclone.conf"
+          C:\ProgramData\chocolatey\bin\rclone.exe config create mega3 mega user d4d8692a49@webxio.pro pass d4d8692a49@webxio.pro --non-interactive --config "D:\PortableSystem\rclone.conf"
+          C:\ProgramData\chocolatey\bin\rclone.exe config create pool union upstreams "mega1:FullSystem mega2:FullSystem mega3:FullSystem" action_policy epall create_policy epmfs search_policy ff --non-interactive --config "D:\PortableSystem\rclone.conf"
+          echo Done! Try Upload/Download now.
+          pause
+          "@
+          Set-Content -Path "$portableRoot\Desktop\Repair-MegaHub.bat" -Value $repairScript
 
           # 3. Create Login Script (Run for User on Login)
           # We do this because NTUSER.DAT doesn't exist until first login.
