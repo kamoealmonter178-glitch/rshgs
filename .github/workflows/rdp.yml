@@ -255,8 +255,27 @@ jobs:
           Write-Host "👉 PLEASE CHECK THE LOGS BELOW FOR THE AUTHENTICATION LINK 👈"
           Write-Host "Copy the link and paste it in your browser to approve the device."
           Write-Host "Copy the link and paste it in your browser to approve the device."
-          # Use Start-Process with -NoNewWindow to bypass PowerShell buffering and show output immediately
-          Start-Process -FilePath "$env:ProgramFiles\Tailscale\tailscale.exe" -ArgumentList "up --hostname=gh-runner-$env:GITHUB_RUN_ID" -NoNewWindow -Wait
+          
+          # "Log Siphon" Method: Redirect to file, then read file to console.
+          # This creates a hard bypass for any buffer suppression.
+          $log = "ts_auth.log"
+          $argList = "up --hostname=gh-runner-$env:GITHUB_RUN_ID"
+          $p = Start-Process -FilePath "$env:ProgramFiles\Tailscale\tailscale.exe" -ArgumentList $argList -RedirectStandardOutput $log -RedirectStandardError $log -PassThru
+          
+          $lastLen = 0
+          while (-not $p.HasExited) {
+              if (Test-Path $log) {
+                  $lines = @(Get-Content $log)
+                  if ($lines.Count -gt $lastLen) {
+                      # Print only new lines
+                      for ($k = $lastLen; $k -lt $lines.Count; $k++) {
+                          Write-Host $lines[$k]
+                      }
+                      $lastLen = $lines.Count
+                  }
+              }
+              Start-Sleep -Seconds 3
+          }
           
           $tsIP = $null
           $retries = 0
