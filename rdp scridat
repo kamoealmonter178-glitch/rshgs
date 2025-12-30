@@ -212,10 +212,32 @@ jobs:
           # Create 'Upload To Cloud' (Sync Local -> Remote)
           $uploadScript = @"
           @echo off
+          
+          :: ------------------
+          :: 1. Force Admin (Self-Elevation)
+          :: ------------------
+          fltmc >nul 2>&1 || (
+              echo Requesting Admin Privileges...
+              PowerShell -Command "Start-Process '%~f0' -Verb RunAs"
+              exit /b
+          )
+
           echo ---------------------------------------------------
           echo Current Mode: Smart Calculator Logic (LFS + Chunker)
           echo Strategy: Fill tightest gaps first, spill over rest.
           echo ---------------------------------------------------
+          
+          :: ------------------
+          :: 2. Self-Healing (Rebuild Config if Missing)
+          :: ------------------
+          echo [Check] Verifying Calculator Logic...
+          C:\ProgramData\chocolatey\bin\rclone.exe listremotes --config "D:\PortableSystem\rclone.conf" | findstr "splitter:" >nul
+          if %errorlevel% neq 0 (
+             echo [Fix] Splitter missing! Rebuilding Calculator Logic...
+             C:\ProgramData\chocolatey\bin\rclone.exe config create pool union upstreams "mega1:FullSystem mega2:FullSystem mega3:FullSystem" action_policy epall create_policy lfs search_policy ff --non-interactive --config "D:\PortableSystem\rclone.conf" >nul 2>&1
+             C:\ProgramData\chocolatey\bin\rclone.exe config create splitter chunker remote pool: chunk_size 256M hash_type md5 --non-interactive --config "D:\PortableSystem\rclone.conf" >nul 2>&1
+             echo [Fix] Done.
+          )
           echo.
           echo [Warm Up] Initializing Remotes Sequentially to prevent Locking...
           taskkill /F /IM rclone.exe /T >nul 2>&1
