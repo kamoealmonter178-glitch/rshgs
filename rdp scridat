@@ -140,13 +140,21 @@ jobs:
               $upstreamString = $upstreams -join " "
               Write-Host "Creating Pool with upstreams: $upstreamString"
               
-              # Policy: epmfs = Existing Path, Most Free Space (Fills drives evenly)
-              rclone config create pool union upstreams "$upstreamString" action_policy epall create_policy epmfs search_policy ff --non-interactive --config "$portableRoot\rclone.conf"
+              Write-Host "Creating Pool with upstreams: $upstreamString"
               
-              if (rclone listremotes --config "$portableRoot\rclone.conf" | Select-String "pool:") {
-                  Write-Host "✅ MegaHub Pool Created Successfully! ($($upstreams.Count) accounts linked)"
+              # Policy: lfs = Least Free Space (Fills gaps intelligently)
+              # "Calculator Logic": Picks drive with least free space > chunk size.
+              rclone config create pool union upstreams "$upstreamString" action_policy epall create_policy lfs search_policy ff --non-interactive --config "$portableRoot\rclone.conf"
+              
+              # Layer 3: The Liquidizer (Chunker)
+              # Splits files into 256MB blocks to flow into gaps
+              Write-Host "Creating Splitter (Chunker)..."
+              rclone config create splitter chunker remote pool: chunk_size 256M hash_type md5 --non-interactive --config "$portableRoot\rclone.conf"
+
+              if (rclone listremotes --config "$portableRoot\rclone.conf" | Select-String "splitter:") {
+                  Write-Host "✅ Liquid Storage (MegaHub) Created Successfully! ($($upstreams.Count) accounts linked)"
               } else {
-                  Write-Error "Failed to create Pool."
+                  Write-Error "Failed to create Pool/Splitter."
                   exit 1
               }
           } else {
@@ -161,17 +169,17 @@ jobs:
           
           # 1. Restore from Cloud (Safely)
           # CRITICAL: Use the specific config file path we created earlier
-          if (rclone listremotes --config "$portableRoot\rclone.conf" | Select-String "pool:") {
+          if (rclone listremotes --config "$portableRoot\rclone.conf" | Select-String "splitter:") {
               Write-Host "Checking for existing backup..."
               $backupExists = $false
               try {
-                  rclone lsd pool: --config "$portableRoot\rclone.conf" 2>&1 | Out-Null
+                  rclone lsd splitter: --config "$portableRoot\rclone.conf" 2>&1 | Out-Null
                   if ($LASTEXITCODE -eq 0) { $backupExists = $true }
               } catch { $backupExists = $false }
 
               if ($backupExists) {
                  Write-Host "Restoring Portable System from Cloud Pool..."
-                 rclone copy pool: $portableRoot --transfers=16 --checkers=32 --drive-chunk-size=64M -v --config "$portableRoot\rclone.conf"
+                 rclone copy splitter: $portableRoot --transfers=16 --checkers=32 --drive-chunk-size=64M -v --config "$portableRoot\rclone.conf"
               } else {
                  Write-Warning "No existing backup found (First Run). Skipping restore."
               }
@@ -187,14 +195,14 @@ jobs:
           
           # Update Cloud Folder
           Write-Host "Ensuring remote folder structure..."
-          try { rclone mkdir pool: --config "$portableRoot\rclone.conf" 2>&1 | Out-Null } catch {}
+          try { rclone mkdir splitter: --config "$portableRoot\rclone.conf" 2>&1 | Out-Null } catch {}
           
           # Create 'Upload To Cloud' (Sync Local -> Remote)
           $uploadScript = @"
           @echo off
           echo Uploading to Cloud Pool (Sync D: to MegaHub)...
           echo WARNING: This will DELETE files on Cloud that are not on this PC.
-          C:\ProgramData\chocolatey\bin\rclone.exe sync D:\PortableSystem pool: --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --exclude "*.bat" --no-update-modtime
+          C:\ProgramData\chocolatey\bin\rclone.exe sync D:\PortableSystem splitter: --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --exclude "*.bat" --no-update-modtime
           echo Done!
           pause
           "@
@@ -205,7 +213,7 @@ jobs:
           @echo off
           echo Downloading from Cloud Pool (Copy MegaHub to D:)...
           echo This will add/overwrite files from Cloud to this PC.
-          C:\ProgramData\chocolatey\bin\rclone.exe copy pool: D:\PortableSystem --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --no-update-modtime
+          C:\ProgramData\chocolatey\bin\rclone.exe copy splitter: D:\PortableSystem --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --no-update-modtime
           echo Done!
           pause
           "@
@@ -220,7 +228,8 @@ jobs:
           C:\ProgramData\chocolatey\bin\rclone.exe config create mega1 mega user itmemugpig@otona.uk pass itmemugpig@otona.uk --non-interactive --config "D:\PortableSystem\rclone.conf"
           C:\ProgramData\chocolatey\bin\rclone.exe config create mega2 mega user b67ebe3c01@webxio.pro pass b67ebe3c01@webxio.pro --non-interactive --config "D:\PortableSystem\rclone.conf"
           C:\ProgramData\chocolatey\bin\rclone.exe config create mega3 mega user d4d8692a49@webxio.pro pass d4d8692a49@webxio.pro --non-interactive --config "D:\PortableSystem\rclone.conf"
-          C:\ProgramData\chocolatey\bin\rclone.exe config create pool union upstreams "mega1:FullSystem mega2:FullSystem mega3:FullSystem" action_policy epall create_policy epmfs search_policy ff --non-interactive --config "D:\PortableSystem\rclone.conf"
+          C:\ProgramData\chocolatey\bin\rclone.exe config create pool union upstreams "mega1:FullSystem mega2:FullSystem mega3:FullSystem" action_policy epall create_policy lfs search_policy ff --non-interactive --config "D:\PortableSystem\rclone.conf"
+          C:\ProgramData\chocolatey\bin\rclone.exe config create splitter chunker remote pool: chunk_size 256M hash_type md5 --non-interactive --config "D:\PortableSystem\rclone.conf"
           echo Done! Try Upload/Download now.
           pause
           "@
