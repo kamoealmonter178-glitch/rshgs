@@ -148,15 +148,25 @@ jobs:
               
               Start-Sleep -Seconds 2 # Give time for file release
 
-              # Layer 3: The Liquidizer (Chunker)
-              # Splits files into 256MB blocks to flow into gaps
-              Write-Host "Creating Splitter (Chunker)..."
-              rclone config create splitter chunker remote pool: chunk_size 256M hash_type md5 --non-interactive --config "$portableRoot\rclone.conf"
+              # Layer 3: The Liquidizer (Chunker) -> "The Calculator Logic"
+              # Wrapping in retry loop to guarantee creation
+              $sRetries = 0
+              $sCreated = $false
+              do {
+                  Write-Host "Creating Splitter (Attempt $($sRetries+1))..."
+                  rclone config create splitter chunker remote pool: chunk_size 256M hash_type md5 --non-interactive --config "$portableRoot\rclone.conf" 2>&1 | Out-Null
+                  if (rclone listremotes --config "$portableRoot\rclone.conf" | Select-String "splitter:") { 
+                      $sCreated = $true 
+                  } else {
+                      Start-Sleep -Seconds 2
+                      $sRetries++
+                  }
+              } until ($sCreated -or $sRetries -ge 3)
 
-              if (rclone listremotes --config "$portableRoot\rclone.conf" | Select-String "splitter:") {
-                  Write-Host "✅ Liquid Storage (MegaHub) Created Successfully! ($($upstreams.Count) accounts linked)"
+              if ($sCreated) {
+                  Write-Host "✅ Smart Calculator Logic (MegaHub) Deployed Successfully!"
               } else {
-                  Write-Error "Failed to create Pool/Splitter."
+                  Write-Error "Failed to initiate Calculator Logic (Splitter)."
                   exit 1
               }
           } else {
@@ -202,7 +212,12 @@ jobs:
           # Create 'Upload To Cloud' (Sync Local -> Remote)
           $uploadScript = @"
           @echo off
+          @echo off
           echo Uploading to Cloud Pool (Sync D: to MegaHub)...
+          echo ---------------------------------------------------
+          echo Current Mode: Smart Calculator Logic (LFS + Chunker)
+          echo Strategy: Fill tightest gaps first, spill over rest.
+          echo ---------------------------------------------------
           echo WARNING: This will DELETE files on Cloud that are not on this PC.
           C:\ProgramData\chocolatey\bin\rclone.exe sync D:\PortableSystem splitter: --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --exclude "*.bat" --no-update-modtime
           echo Done!
