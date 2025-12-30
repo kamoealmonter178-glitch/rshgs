@@ -131,13 +131,13 @@ jobs:
               Write-Host "Checking for existing backup..."
               $backupExists = $false
               try {
-                  rclone lsd pool:FullSystem --config "$portableRoot\rclone.conf" 2>&1 | Out-Null
+                  rclone lsd pool: --config "$portableRoot\rclone.conf" 2>&1 | Out-Null
                   if ($LASTEXITCODE -eq 0) { $backupExists = $true }
               } catch { $backupExists = $false }
 
               if ($backupExists) {
                  Write-Host "Restoring Portable System from Cloud Pool..."
-                 rclone copy pool:FullSystem $portableRoot --transfers=16 --checkers=32 --drive-chunk-size=64M -v --config "$portableRoot\rclone.conf"
+                 rclone copy pool: $portableRoot --transfers=16 --checkers=32 --drive-chunk-size=64M -v --config "$portableRoot\rclone.conf"
               } else {
                  Write-Warning "No existing backup found (First Run). Skipping restore."
               }
@@ -153,14 +153,14 @@ jobs:
           
           # Update Cloud Folder
           Write-Host "Ensuring remote folder structure..."
-          try { rclone mkdir pool:FullSystem --config "$portableRoot\rclone.conf" 2>&1 | Out-Null } catch {}
+          try { rclone mkdir pool: --config "$portableRoot\rclone.conf" 2>&1 | Out-Null } catch {}
           
           # Create 'Upload To Cloud' (Sync Local -> Remote)
           $uploadScript = @"
           @echo off
           echo Uploading to Cloud Pool (Sync D: to MegaHub)...
           echo WARNING: This will DELETE files on Cloud that are not on this PC.
-          C:\ProgramData\chocolatey\bin\rclone.exe sync D:\PortableSystem pool:FullSystem --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --exclude "*.bat" --no-update-modtime
+          C:\ProgramData\chocolatey\bin\rclone.exe sync D:\PortableSystem pool: --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --exclude "*.bat" --no-update-modtime
           echo Done!
           pause
           "@
@@ -171,7 +171,7 @@ jobs:
           @echo off
           echo Downloading from Cloud Pool (Copy MegaHub to D:)...
           echo This will add/overwrite files from Cloud to this PC.
-          C:\ProgramData\chocolatey\bin\rclone.exe copy pool:FullSystem D:\PortableSystem --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --no-update-modtime
+          C:\ProgramData\chocolatey\bin\rclone.exe copy pool: D:\PortableSystem --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --no-update-modtime
           echo Done!
           pause
           "@
