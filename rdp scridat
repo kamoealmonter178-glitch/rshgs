@@ -46,10 +46,28 @@ jobs:
           Add-LocalGroupMember -Group "Administrators" -Member "TOOLBOXLAP"
           Add-LocalGroupMember -Group "Remote Desktop Users" -Member "TOOLBOXLAP"
           echo "RDP_CREDS=User: TOOLBOXLAP | Password: $password" >> $env:GITHUB_ENV
-          if (-not (Get-LocalUser -Name "TOOLBOXLAP")) {
               Write-Error "User creation failed"
               exit 1
           }
+
+          # Create Redirection Script (Pre-Login)
+          $scriptContent = @"
+          `$portableRoot = 'D:\PortableSystem'
+          `$regPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders'
+          `$map = @{
+              'Desktop' = "`$portableRoot\Desktop";
+              'Personal' = "`$portableRoot\Documents";
+              '{374DE290-123F-4565-9164-39C4925E467B}' = "`$portableRoot\Downloads";
+              'My Music' = "`$portableRoot\Music";
+              'My Pictures' = "`$portableRoot\Pictures";
+              'My Video' = "`$portableRoot\Videos"
+          }
+          if (-not (Test-Path `$regPath)) { New-Item -Path `$regPath -Force }
+          foreach (`$key in `$map.Keys) {
+              Set-ItemProperty -Path `$regPath -Name `$key -Value `$map[`$key] -Type ExpandString -Force
+          }
+          "@
+          Set-Content -Path "C:\Redirect-Profile.ps1" -Value $scriptContent
 
       - name: Pre-load User Profile (Skip First Login Wait)
         run: |
@@ -57,13 +75,12 @@ jobs:
           $password = ConvertTo-SecureString "admin@123" -AsPlainText -Force
           $cred = New-Object System.Management.Automation.PSCredential ("TOOLBOXLAP", $password)
           
-          # This command forces Windows to build the user profile (C:\Users\TOOLBOXLAP)
-          # So when you login, you don't wait for "Hi, We're getting things ready..."
+          # Run the redirection script AS THE USER to set HKCU keys immediately
           try {
-              Start-Process powershell.exe -Credential $cred -ArgumentList "-Command `"exit`"" -LoadUserProfile -Wait
-              Write-Host "Profile created successfully!"
+              Start-Process powershell.exe -Credential $cred -ArgumentList "-ExecutionPolicy Bypass -File C:\Redirect-Profile.ps1" -LoadUserProfile -Wait
+              Write-Host "Profile created and redirected successfully!"
           } catch {
-              Write-Warning "Profile pre-load attempt had a minor issue, but likely triggered creation."
+              Write-Warning "Profile pre-load/redirection minor issue."
           }
 
       - name: Install Tailscale
@@ -206,33 +223,8 @@ jobs:
           "@
           Set-Content -Path "$portableRoot\Desktop\Repair-MegaHub.bat" -Value $repairScript
 
-          # 3. Create Login Script (Run for User on Login)
-          # We do this because NTUSER.DAT doesn't exist until first login.
-          $loginScriptPath = "C:\Redirect-Profile.ps1"
-          $scriptContent = @"
-          `$portableRoot = '$portableRoot'
-          `$regPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders'
-          `$map = @{
-              'Desktop' = "`$portableRoot\Desktop";
-              'Personal' = "`$portableRoot\Documents";
-              '{374DE290-123F-4565-9164-39C4925E467B}' = "`$portableRoot\Downloads";
-              'My Music' = "`$portableRoot\Music";
-              'My Pictures' = "`$portableRoot\Pictures";
-              'My Video' = "`$portableRoot\Videos"
-          }
-          foreach (`$key in `$map.Keys) {
-              Set-ItemProperty -Path `$regPath -Name `$key -Value `$map[`$key] -Type ExpandString -Force
-          }
-          # Restart Explorer to apply immediately
-          Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
-          "@
-          Set-Content -Path $loginScriptPath -Value $scriptContent
-
-          # 4. Register Script to Run on Login via HKLM
-          $runKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
-          Set-ItemProperty -Path $runKey -Name "RDP_Persistence_Init" -Value "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File $loginScriptPath"
-          
-          Write-Host "Login script registered. Folders will redirect upon user login."
+          # 3. Create Login Script (Run for User on Login) -> MOVED TO PRE-LOAD STEP
+          # The redirection is now handled *before* login for speed and reliability.
           
           # Force clean exit to prevent 'First Run' error code from failing the step
           exit 0
