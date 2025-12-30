@@ -86,10 +86,22 @@ jobs:
           $portableRoot = "D:\PortableSystem"
           $userDirs = @("Desktop", "Documents", "Downloads", "Music", "Pictures", "Videos")
           
-          # 1. Restore from Cloud
+          # 1. Restore from Cloud (Safely)
           if (rclone listremotes | Select-String "remote:") {
-              Write-Host "Restoring Portable System from Cloud..."
-              rclone copy remote:FullSystem $portableRoot --transfers=8 --checkers=16 --drive-chunk-size=64M -v
+              Write-Host "Checking for existing backup..."
+              $backupExists = $false
+              try {
+                  # Check if FullSystem exists (suppress error output)
+                  rclone lsd remote:FullSystem 2>&1 | Out-Null
+                  if ($LASTEXITCODE -eq 0) { $backupExists = $true }
+              } catch { $backupExists = $false }
+
+              if ($backupExists) {
+                 Write-Host "Restoring Portable System from Cloud..."
+                 rclone copy remote:FullSystem $portableRoot --transfers=8 --checkers=16 --drive-chunk-size=64M -v
+              } else {
+                 Write-Warning "No existing backup found (First Run). Skipping restore."
+              }
           } else {
               Write-Warning "No cloud remote configured. Starting fresh."
           }
