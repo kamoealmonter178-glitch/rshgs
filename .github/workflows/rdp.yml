@@ -473,8 +473,8 @@ jobs:
           # Force TLS 1.2 for GitHub downloads (Fixes SSL/TLS Channel Error)
           [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
           
-          # Download valid Windows x64 binary
-          Invoke-WebRequest -Uri "https://github.com/playit-cloud/playit-agent/releases/download/v0.15.26/playit-0.15.26-windows-amd64.exe" -OutFile "playit.exe"
+          # Download valid Windows x64 binary (Updated to v0.16.4 Signed)
+          Invoke-WebRequest -Uri "https://github.com/playit-cloud/playit-agent/releases/download/v0.16.4/playit-windows-x86_64-signed.exe" -OutFile "playit.exe"
           
           Write-Host "Starting Playit.gg..."
           Write-Host "👉 CHECK BELOW FOR THE CLAIM URL / LINK 👈"
