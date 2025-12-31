@@ -254,6 +254,10 @@ jobs:
           C:\ProgramData\chocolatey\bin\rclone.exe about mega3: --config "D:\PortableSystem\rclone.conf" >nul 2>&1
           echo [Warm Up] Done. Starting Sync...
           echo [Warm Up] Done. Starting Sync...
+          
+          echo [Preparation] Closing Chrome to release database locks...
+          taskkill /F /IM chrome.exe /T >nul 2>&1
+          
           echo.
           echo ===================================================
           echo PHASE 1: Registry Backup (Settings & Keys)
@@ -289,6 +293,13 @@ jobs:
           C:\ProgramData\chocolatey\bin\rclone.exe sync "C:\Program Files (x86)" "splitter:Backup/Program Files (x86)" --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" %EXCLUDES% --no-update-modtime --ignore-errors
 
           echo.
+          echo ===================================================
+          echo PHASE 4: Google Chrome Data (Bookmarks/History)
+          echo ===================================================
+          echo [Syncing] Chrome User Data...
+          C:\ProgramData\chocolatey\bin\rclone.exe sync "%LOCALAPPDATA%\Google\Chrome\User Data" splitter:Backup/ChromeData --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --no-update-modtime --ignore-errors
+          
+          echo.
           echo ✅ Full System Backup Complete!
           pause
           "@
@@ -320,6 +331,11 @@ jobs:
               echo Importing Program Keys (Errors Expected on Locked Keys)...
               reg import "D:\PortableSystem\Registry\HKLM_Software.reg" >nul 2>&1
           )
+
+          echo.
+          echo [Restore] Chrome User Data...
+          taskkill /F /IM chrome.exe /T >nul 2>&1
+          C:\ProgramData\chocolatey\bin\rclone.exe copy splitter:Backup/ChromeData "%LOCALAPPDATA%\Google\Chrome\User Data" --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --ignore-errors --no-update-modtime
 
           echo ✅ Restore Complete!
           pause
