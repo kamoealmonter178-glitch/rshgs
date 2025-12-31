@@ -269,52 +269,145 @@ jobs:
           echo [Preparation] Closing Chrome to release database locks...
           taskkill /F /IM chrome.exe /T >nul 2>&1
           
-          echo.
-          echo ===================================================
-          echo PHASE 1: Registry Backup (Settings & Keys)
-          echo ===================================================
-          if not exist "D:\PortableSystem\Registry" mkdir "D:\PortableSystem\Registry"
-          echo [Exporting] HKCU (User Settings)...
-          reg export HKCU "D:\PortableSystem\Registry\HKCU.reg" /y >nul 2>&1
-          echo [Exporting] HKLM\Software (Program Keys)...
-          reg export "HKLM\SOFTWARE" "D:\PortableSystem\Registry\HKLM_Software.reg" /y >nul 2>&1
+          :: ==========================================
+          :: GENERATE EXCLUSION LIST (User Defined)
+          :: ==========================================
+           echo [Exclusions] Generating Master Filter...
+           set "EXLIST=D:\PortableSystem\excludes.txt"
+           type nul > "%EXLIST%"
+           
+           echo - 7-Zip/**>> "%EXLIST%"
+           echo - Amazon/**>> "%EXLIST%"
+           echo - Android/**>> "%EXLIST%"
+           echo - Application Verifier/**>> "%EXLIST%"
+           echo - Azure Cosmos DB Emulator/**>> "%EXLIST%"
+           echo - CMake/**>> "%EXLIST%"
+           echo - Common Files/**>> "%EXLIST%"
+           echo - dotnet/**>> "%EXLIST%"
+           echo - Git/**>> "%EXLIST%"
+           echo - GitHub CLI/**>> "%EXLIST%"
+           echo - Google/**>> "%EXLIST%"
+           echo - Hyper-V/**>> "%EXLIST%"
+           echo - IIS/**>> "%EXLIST%"
+           echo - IIS Express/**>> "%EXLIST%"
+           echo - ImageMagick*/**>> "%EXLIST%"
+           echo - Internet Explorer/**>> "%EXLIST%"
+           echo - LLVM/**>> "%EXLIST%"
+           echo - Microsoft/**>> "%EXLIST%"
+           echo - Microsoft*/**>> "%EXLIST%"
+           echo - ModifiableWindowsApps/**>> "%EXLIST%"
+           echo - MongoDB/**>> "%EXLIST%"
+           echo - mongosh/**>> "%EXLIST%"
+           echo - Mozilla Firefox/**>> "%EXLIST%"
+           echo - MSBuild/**>> "%EXLIST%"
+           echo - MySQL/**>> "%EXLIST%"
+           echo - nodejs/**>> "%EXLIST%"
+           echo - OpenSSL/**>> "%EXLIST%"
+           echo - PackageManagement/**>> "%EXLIST%"
+           echo - PostgreSQL/**>> "%EXLIST%"
+           echo - PowerShell/**>> "%EXLIST%"
+           echo - R/**>> "%EXLIST%"
+           echo - Reference Assemblies/**>> "%EXLIST%"
+           echo - Tailscale/**>> "%EXLIST%"
+           echo - Unity Hub/**>> "%EXLIST%"
+           echo - VS2010Schemas/**>> "%EXLIST%"
+           echo - VS2012Schemas/**>> "%EXLIST%"
+           echo - Windows Defender/**>> "%EXLIST%"
+           echo - Windows Defender*/**>> "%EXLIST%"
+           echo - Windows Mail/**>> "%EXLIST%"
+           echo - Windows Media Player/**>> "%EXLIST%"
+           echo - Windows NT/**>> "%EXLIST%"
+           echo - Windows Photo Viewer/**>> "%EXLIST%"
+           echo - WindowsPowerShell/**>> "%EXLIST%"
+           echo - HTML Help Workshop/**>> "%EXLIST%"
+           echo - Inno Setup 6/**>> "%EXLIST%"
+           echo - Nuget/**>> "%EXLIST%"
+           echo - Open XML SDK/**>> "%EXLIST%"
+           echo - pipx/**>> "%EXLIST%"
+           echo - pipx_bin/**>> "%EXLIST%"
+           echo - sbt/**>> "%EXLIST%"
+           echo - Visual Studio/**>> "%EXLIST%"
+           echo - Windows Application Driver/**>> "%EXLIST%"
+           echo - Windows Kits/**>> "%EXLIST%"
+           echo - WiX Toolset v3.14/**>> "%EXLIST%"
+           echo - chocolatey/**>> "%EXLIST%"
+           echo - ChocolateyHttpCache/**>> "%EXLIST%"
+           echo - dbg/**>> "%EXLIST%"
+           echo - dftmp/**>> "%EXLIST%"
+           echo - docker/**>> "%EXLIST%"
+           echo - GitHub/**>> "%EXLIST%"
+           echo - kind/**>> "%EXLIST%"
+           echo - m2/**>> "%EXLIST%"
+           echo - Microsoft DevDiv/**>> "%EXLIST%"
+           echo - Microsoft Service Fabric/**>> "%EXLIST%"
+           echo - Mozilla*/**>> "%EXLIST%"
+           echo - Package Cache/**>> "%EXLIST%"
+           echo - Packages/**>> "%EXLIST%"
+           echo - regid*/**>> "%EXLIST%"
+           echo - runner/**>> "%EXLIST%"
+           echo - shimgen/**>> "%EXLIST%"
+           echo - SoftwareDistribution/**>> "%EXLIST%"
+           echo - ssh/**>> "%EXLIST%"
+           echo - USOPrivate/**>> "%EXLIST%"
+           echo - USOShared/**>> "%EXLIST%"
+           echo - Windows App Certification Kit/**>> "%EXLIST%"
+           echo - gemrc/**>> "%EXLIST%"
+           echo - Temp/**>> "%EXLIST%"
+           echo - Windows/**>> "%EXLIST%"
+           echo - WSL/**>> "%EXLIST%"
+           echo - wsl/**>> "%EXLIST%"
           
-          echo.
-          echo ===================================================
-          echo PHASE 2: User Profile (Desktop, Docs, AppData...)
-          echo ===================================================
-          echo WARNING: This will DELETE files on Cloud that are not on this PC.
-          C:\ProgramData\chocolatey\bin\rclone.exe sync D:\PortableSystem splitter: --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --exclude "*.bat" --no-update-modtime
-          
-          echo.
-          echo ===================================================
-          echo PHASE 3: System Programs (Program Files & Data)
-          echo ===================================================
-          echo Excluding Windows/Microsoft system files...
-          
-          set "EXCLUDES=--exclude "Microsoft/**" --exclude "Windows/**" --exclude "Packages/**" --exclude "Temp/**" --exclude "USOPrivate/**" --exclude "Windows Defender/**""
+@echo off
+echo ===================================================
+echo   RDP PERMANENT - FIXED VERSION
+echo   WSL BLOCKED | NO BLOATWARE | NO REGISTRY
+echo ===================================================
 
-          echo [Syncing] ProgramData...
-          C:\ProgramData\chocolatey\bin\rclone.exe sync C:\ProgramData splitter:Backup/ProgramData --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" %EXCLUDES% --no-update-modtime --ignore-errors
-          
-          echo [Syncing] Program Files...
-          C:\ProgramData\chocolatey\bin\rclone.exe sync "C:\Program Files" "splitter:Backup/Program Files" --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" %EXCLUDES% --no-update-modtime --ignore-errors
-          
-          echo [Syncing] Program Files (x86)...
-          C:\ProgramData\chocolatey\bin\rclone.exe sync "C:\Program Files (x86)" "splitter:Backup/Program Files (x86)" --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" %EXCLUDES% --no-update-modtime --ignore-errors
+echo [PHASE 1] USER PROFILE (Desktop, Docs...)
+echo ---------------------------------------
+C:\ProgramData\chocolatey\bin\rclone.exe sync D:\PortableSystem splitter: --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --exclude "*.bat" --no-update-modtime
 
-          echo.
-          echo ===================================================
-          echo PHASE 4: Google Chrome Data (Bookmarks/History)
-          echo ===================================================
-          echo [Syncing] Chrome User Data...
-          C:\ProgramData\chocolatey\bin\rclone.exe sync "%LOCALAPPDATA%\Google\Chrome\User Data" splitter:Backup/ChromeData --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --no-update-modtime --ignore-errors
-          
-          echo.
-          echo ✅ Full System Backup Complete!
-          pause
-          "@
+echo.
+echo [PHASE 2] CLEAN SYSTEM BACKUP (Exclusions Active)
+echo ---------------------------------------
+echo [Syncing] ProgramData (No Bloatware)...
+C:\ProgramData\chocolatey\bin\rclone.exe sync C:\ProgramData splitter:Backup/ProgramData --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --filter-from "D:\PortableSystem\excludes.txt" --exclude "WSL/**" --exclude "wsl/**" --no-update-modtime --ignore-errors
+
+echo [Syncing] Program Files (WSL BLOCKED)...
+C:\ProgramData\chocolatey\bin\rclone.exe sync "C:\Program Files" "splitter:Backup/Program Files" --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --filter-from "D:\PortableSystem\excludes.txt" --exclude "WSL/**" --exclude "wsl/**" --no-update-modtime --ignore-errors
+
+echo [Syncing] Program Files (x86) (WSL BLOCKED)...
+C:\ProgramData\chocolatey\bin\rclone.exe sync "C:\Program Files (x86)" "splitter:Backup/Program Files (x86)" --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --filter-from "D:\PortableSystem\excludes.txt" --exclude "WSL/**" --exclude "wsl/**" --no-update-modtime --ignore-errors
+
+echo.
+echo [PHASE 3] GOOGLE CHROME
+echo ---------------------------------------
+C:\ProgramData\chocolatey\bin\rclone.exe sync "%LOCALAPPDATA%\Google\Chrome\User Data" splitter:Backup/ChromeData --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --no-update-modtime --ignore-errors
+
+echo.
+echo ✅ ALL DONE.
+pause
+"@
           Set-Content -Path "$portableRoot\Desktop\Upload-To-Cloud.bat" -Value $uploadScript
+          
+          # Schedule Auto-Backup (Zero Resource Usage)
+          # Trigger: EXACTLY 5 Hours from NOW (Server Start).
+          # This protects against the 6-hour GitHub Actions timeout.
+          try {
+         try {
+    # Run VISIBLY (Pop-up) to alert user
+    $action = New-ScheduledTaskAction -Execute "$portableRoot\Desktop\Upload-To-Cloud.bat"
+    $triggerTime = (Get-Date).AddHours(5)
+    $trigger = New-ScheduledTaskTrigger -Once -At $triggerTime
+    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
+    
+    # Register without Principal (defaults to current user)
+    Register-ScheduledTask -Action $action -Trigger $trigger -Settings $settings -TaskName "MegaHubAutoBackup" -Description "Visible Auto-Backup T+5h" -Force
+    Write-Host "Auto-Backup Scheduled for $triggerTime (Visible Mode)."
+} catch {
+    Write-Warning "Could not schedule Auto-Backup task."
+}
+          }
 
           # Create 'Download From Cloud' (Copy Remote -> Local)
           $downloadScript = @"
