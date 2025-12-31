@@ -91,8 +91,7 @@ jobs:
               Write-Warning "Profile pre-load/redirection minor issue."
           }
 
-      # (Tailscale step removed by user request)
-
+      - name: Install and Configure Rclone (Auto-Login)
         run: |
           # Install Rclone
           choco install rclone -y
