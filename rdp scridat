@@ -153,9 +153,9 @@ jobs:
               
               Write-Host "Creating Pool with upstreams: $upstreamString"
               
-              # Policy: mfs = Most Free Space (Balances load across accounts)
-              # "Calculator Logic": Picks drive with MOST free space to prevent full disks.
-              rclone config create pool union upstreams "$upstreamString" action_policy epall create_policy mfs search_policy ff --non-interactive --config "$portableRoot\rclone.conf"
+              # Policy: lfs = Least Free Space (Fills gaps intelligently)
+              # "Calculator Logic": Picks drive with least free space > chunk size.
+              rclone config create pool union upstreams "$upstreamString" action_policy epall create_policy lfs search_policy ff --non-interactive --config "$portableRoot\rclone.conf"
               
               Start-Sleep -Seconds 2 # Give time for file release
 
