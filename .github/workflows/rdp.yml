@@ -477,8 +477,27 @@ jobs:
           Write-Host "Starting Tailscale..."
           Write-Host "👉 PLEASE CHECK THE LOGS BELOW FOR THE AUTHENTICATION LINK 👈"
           
-          # DIRECT EXECUTION (No fancy redirects) - Guarantees Output Visibility
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --hostname="gh-runner-$env:GITHUB_RUN_ID" --accept-routes --advertise-exit-node --force-reauth
+          # "Stream Reader" Method: Redirect to file, then stream file to console in real-time.
+          # This bypasses the buffer that hides the link.
+          $logFile = "tailscale_log.txt"
+          
+          # Start Tailscale in background, writing to file
+          $argList = "up --hostname=gh-runner-$env:GITHUB_RUN_ID --accept-routes --advertise-exit-node --force-reauth"
+          $p = Start-Process -FilePath "$env:ProgramFiles\Tailscale\tailscale.exe" -ArgumentList $argList -RedirectStandardOutput $logFile -RedirectStandardError $logFile -PassThru
+          
+          # Wait a moment for file creation
+          Start-Sleep -Seconds 2
+          
+          # Stream the log file to the console until the process exits or link is found
+          # Note: We use -Wait so it acts like 'tail -f'
+          Get-Content $logFile -Wait -Force | ForEach-Object {
+              Write-Host $_
+              if ($_ -match "https://login.tailscale.com") {
+                  # We found the link! Keep streaming for a bit then break if needed, 
+                  # but usually we just want to see it.
+              }
+              if ($p.HasExited) { break }
+          }
           
           $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
           echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
