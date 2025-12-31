@@ -91,15 +91,8 @@ jobs:
               Write-Warning "Profile pre-load/redirection minor issue."
           }
 
-      - name: Install Tailscale
-        run: |
-          $tsUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
-          $installerPath = "$env:TEMP\tailscale.msi"
-          Invoke-WebRequest -Uri $tsUrl -OutFile $installerPath
-          Start-Process msiexec.exe -ArgumentList "/i", "`"$installerPath`"", "/quiet", "/norestart" -Wait
-          Remove-Item $installerPath -Force
+      # (Tailscale step removed by user request)
 
-      - name: Install and Configure Rclone (Auto-Login)
         run: |
           # Install Rclone
           choco install rclone -y
@@ -478,6 +471,9 @@ jobs:
       - name: Install & Start Playit.gg (Tunnel)
         run: |
           Write-Host "Downloading Playit.gg Agent..."
+          # Force TLS 1.2 for GitHub downloads (Fixes SSL/TLS Channel Error)
+          [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+          
           # Download valid Windows x64 binary
           Invoke-WebRequest -Uri "https://github.com/playit-cloud/playit-agent/releases/download/v0.15.26/playit-0.15.26-windows-amd64.exe" -OutFile "playit.exe"
           
