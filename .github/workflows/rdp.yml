@@ -254,9 +254,31 @@ jobs:
           C:\ProgramData\chocolatey\bin\rclone.exe about mega3: --config "D:\PortableSystem\rclone.conf" >nul 2>&1
           echo [Warm Up] Done. Starting Sync...
           echo.
+          echo ===================================================
+          echo PHASE 1: User Profile (Desktop, Docs, AppData...)
+          echo ===================================================
           echo WARNING: This will DELETE files on Cloud that are not on this PC.
           C:\ProgramData\chocolatey\bin\rclone.exe sync D:\PortableSystem splitter: --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --exclude "*.bat" --no-update-modtime
-          echo Done!
+          
+          echo.
+          echo ===================================================
+          echo PHASE 2: System Programs (Program Files & Data)
+          echo ===================================================
+          echo Excluding Windows/Microsoft system files...
+          
+          set "EXCLUDES=--exclude "Microsoft/**" --exclude "Windows/**" --exclude "Packages/**" --exclude "Temp/**" --exclude "USOPrivate/**" --exclude "Windows Defender/**""
+
+          echo [Syncing] ProgramData...
+          C:\ProgramData\chocolatey\bin\rclone.exe sync C:\ProgramData splitter:Backup/ProgramData --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" %EXCLUDES% --no-update-modtime --ignore-errors
+          
+          echo [Syncing] Program Files...
+          C:\ProgramData\chocolatey\bin\rclone.exe sync "C:\Program Files" "splitter:Backup/Program Files" --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" %EXCLUDES% --no-update-modtime --ignore-errors
+          
+          echo [Syncing] Program Files (x86)...
+          C:\ProgramData\chocolatey\bin\rclone.exe sync "C:\Program Files (x86)" "splitter:Backup/Program Files (x86)" --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" %EXCLUDES% --no-update-modtime --ignore-errors
+
+          echo.
+          echo ✅ Full System Backup Complete!
           pause
           "@
           Set-Content -Path "$portableRoot\Desktop\Upload-To-Cloud.bat" -Value $uploadScript
@@ -266,8 +288,18 @@ jobs:
           @echo off
           echo Downloading from Cloud Pool (Copy MegaHub to D:)...
           echo This will add/overwrite files from Cloud to this PC.
+          
+          echo.
+          echo [Restore] User Profile...
           C:\ProgramData\chocolatey\bin\rclone.exe copy splitter: D:\PortableSystem --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --no-update-modtime
-          echo Done!
+          
+          echo.
+          echo [Restore] System Programs...
+          C:\ProgramData\chocolatey\bin\rclone.exe copy splitter:Backup/ProgramData C:\ProgramData --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --ignore-errors --no-update-modtime
+          C:\ProgramData\chocolatey\bin\rclone.exe copy "splitter:Backup/Program Files" "C:\Program Files" --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --ignore-errors --no-update-modtime
+          C:\ProgramData\chocolatey\bin\rclone.exe copy "splitter:Backup/Program Files (x86)" "C:\Program Files (x86)" --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --ignore-errors --no-update-modtime
+          
+          echo ✅ Restore Complete!
           pause
           "@
           Set-Content -Path "$portableRoot\Desktop\Download-From-Cloud.bat" -Value $downloadScript
