@@ -478,79 +478,42 @@ pause
 
 
 
-      - name: Establish Tailscale Connection (Interactive Link)
+      # -------------------------------------------------------------------------
+      # PLAYIT.GG SETUP (Replaces Tailscale)
+      # -------------------------------------------------------------------------
+      - name: Install & Start Playit.gg (Tunnel)
         run: |
-          Write-Host "Starting Tailscale..."
-          Write-Host "👉 PLEASE CHECK THE LOGS BELOW FOR THE AUTHENTICATION LINK 👈"
-          Write-Host "Copy the link and paste it in your browser to approve the device."
-          Write-Host "Copy the link and paste it in your browser to approve the device."
+          Write-Host "Downloading Playit.gg Agent..."
+          # Download valid Windows x64 binary
+          Invoke-WebRequest -Uri "https://github.com/playit-cloud/playit-agent/releases/download/v0.15.26/playit-0.15.26-windows-amd64.exe" -OutFile "playit.exe"
           
-          # "Log Siphon" Method: Redirect to file, then read file to console.
-          # This creates a hard bypass for any buffer suppression.
-          # "Log Siphon" Method: Redirect to SEPARATE files (PowerShell constraint).
-          $logOut = "ts_out.log"
-          $logErr = "ts_err.log"
-          $argList = "up --hostname=gh-runner-$env:GITHUB_RUN_ID"
-          $p = Start-Process -FilePath "$env:ProgramFiles\Tailscale\tailscale.exe" -ArgumentList $argList -RedirectStandardOutput $logOut -RedirectStandardError $logErr -PassThru
+          Write-Host "Starting Playit.gg..."
+          Write-Host "👉 CHECK BELOW FOR THE CLAIM URL / LINK 👈"
+          Write-Host "=========================================="
           
-          $lastLenOut = 0
-          $lastLenErr = 0
+          # Start Playit directly in console to show the Claim URL
+          # NoNewWindow allows standard output to stream directly to GitHub Logs
+          Start-Process -FilePath ".\playit.exe" -NoNewWindow -PassThru
           
-          while (-not $p.HasExited) {
-              # Check Stdout
-              if (Test-Path $logOut) {
-                  $lines = @(Get-Content $logOut)
-                  if ($lines.Count -gt $lastLenOut) {
-                      for ($k = $lastLenOut; $k -lt $lines.Count; $k++) { Write-Host "[OUT] $($lines[$k])" }
-                      $lastLenOut = $lines.Count
-                  }
-              }
-              # Check Stderr (Link is usually here)
-              if (Test-Path $logErr) {
-                  $lines = @(Get-Content $logErr)
-                  if ($lines.Count -gt $lastLenErr) {
-                      for ($k = $lastLenErr; $k -lt $lines.Count; $k++) { Write-Host "[ERR] $($lines[$k])" }
-                      $lastLenErr = $lines.Count
-                  }
-              }
-              Start-Sleep -Seconds 3
-          }
-          
-          $tsIP = $null
-          $retries = 0
-
-          while (-not $tsIP -and $retries -lt 10) {
-              $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
-              Start-Sleep -Seconds 5
-              $retries++
-          }
-          if (-not $tsIP) {
-              Write-Error "Tailscale IP not assigned. Exiting."
-              exit 1
-          }
-          echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
+          # Sleep to let it initialize and print the link
+          Start-Sleep -Seconds 15
 
       - name: Verify RDP Accessibility
         run: |
-          Write-Host "Tailscale IP: $env:TAILSCALE_IP"
-          $testResult = Test-NetConnection -ComputerName $env:TAILSCALE_IP -Port 3389
-          if (-not $testResult.TcpTestSucceeded) {
-              Write-Error "TCP connection to RDP port 3389 failed"
-              exit 1
-          }
-          Write-Host "TCP connectivity successful!"
+          Write-Host "Use the Playit.gg Dashboard/Link to connect."
+          Write-Host "Local RDP is listening on port 3389."
 
       - name: Maintain Connection
         run: |
-          $ownershipNotice = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("Cj09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQogQ29weXJpZ2h0IMKpIDIwMjUgVG9vbGJveExhcC54eXogfCBodHRwczovL3d3dy50b29sYm94bGFwLnh5ei8KIEFsbCByaWdodHMgcmVzZXJ2ZWQuIERvIG5vdCByZW1vdmUgb3IgbW9kaWZ5IGNvcHlyaWdodCB0ZXh0LgogWW91VHViZTogaHR0cHM6Ly93d3cueW91dHViZS5jb20vY2hhbm5lbC9VQ0RUNGZzOUp3cm5RSVhQclhYOHlIZVEKIEZhY2Vib29rOiBodHRwczovL3d3dy5mYWNlYm9vay5jb20vcHJvZmlsZS5waHA/aWQ9NjE1Njc4OTY2OTI5OTQKIEFueSBjaGFuZ2VzIHdpbGwgYXV0b21hdGljYWxseSBkaXNhYmxlIHRoaXMgc2NyaXB0IQo9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0K"))
+          $ownershipNotice = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("Cj09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQogQ29weXJpZ2h0IMKpIDIwMjUgVG9vbGJveExhcC54eXogfCBodHRwczovL3d3dy50b29sYm94bGFwLnN5ei8KIEFsbCByaWdodHMgcmVzZXJ2ZWQuIERvIG5vdCByZW1vdmUgb3IgbW9kaWZ5IGNvcHlyaWdodCB0ZXh0LgogWW91VHViZTogaHR0cHM6Ly93d3cueW91dHViZS5jb20vY2hhbm5lbC9VQ0RUNGZzOUp3cm5RSVhQclhYOHlIZVEKIEZhY2Vib29rOiBodHRwczovL3d3dy5mYWNlYm9vay5jb20vcHJvZmlsZS5waHA/aWQ9NjE1Njc4OTY2OTI5OTQKIEFueSBjaGFuZ2VzIHdpbGwgYXV0b21hdGljYWxseSBkaXNhYmxlIHRoaXMgc2NyaXB0IQo9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0K"))
           Write-Host $ownershipNotice
-          Write-Host "`n=== RDP ACCESS ==="
-          Write-Host "Address: $env:TAILSCALE_IP"
+          Write-Host "`n=== RDP ACCESS VIA PLAYIT.GG ==="
+          Write-Host "Address: (Check Playit Dashboard / Link Above)"
           Write-Host "Username: TOOLBOXLAP"
           Write-Host "Password: admin@123"
           Write-Host "Powered by https://www.toolboxlap.xyz/"
           Write-Host "========= All rights reserved =========`n"
           while ($true) {
-              Write-Host "[$(Get-Date)] RDP Active - Use Ctrl+C in workflow to terminate"
+              Write-Host "[$(Get-Date)] RDP Active - Check Playit.gg for Connection Info - Use Ctrl+C to terminate"
               Start-Sleep -Seconds 300
           }

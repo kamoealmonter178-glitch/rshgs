@@ -472,89 +472,42 @@ jobs:
           # Force clean exit to prevent 'First Run' error code from failing the step
           exit 0
 
-      - name: Establish Tailscale Connection (Interactive Link)
+      # -------------------------------------------------------------------------
+      # PLAYIT.GG SETUP (Replaces Tailscale)
+      # -------------------------------------------------------------------------
+      - name: Install & Start Playit.gg (Tunnel)
         run: |
-          Write-Host "Starting Tailscale..."
-          Write-Host "👉 PLEASE CHECK THE LOGS BELOW FOR THE AUTHENTICATION LINK 👈"
+          Write-Host "Downloading Playit.gg Agent..."
+          # Download valid Windows x64 binary
+          Invoke-WebRequest -Uri "https://github.com/playit-cloud/playit-agent/releases/download/v0.15.26/playit-0.15.26-windows-amd64.exe" -OutFile "playit.exe"
           
-          # "PowerShell Job" Method: The most robust way to stream async output without file locks.
-          # Start-Job runs in a separate process, Receive-Job streams the output buffer.
+          Write-Host "Starting Playit.gg..."
+          Write-Host "👉 CHECK BELOW FOR THE CLAIM URL / LINK 👈"
+          Write-Host "=========================================="
           
-          $tsPath = "$env:ProgramFiles\Tailscale\tailscale.exe"
-          $tsArgs = "up --hostname=gh-runner-$env:GITHUB_RUN_ID --accept-routes --advertise-exit-node --force-reauth"
+          # Start Playit directly in console to show the Claim URL
+          # NoNewWindow allows standard output to stream directly to GitHub Logs
+          Start-Process -FilePath ".\playit.exe" -NoNewWindow -PassThru
           
-          $job = Start-Job -ScriptBlock { 
-              param($path, $args)
-              & $path $args 2>&1 
-          } -ArgumentList $tsPath, $tsArgs
-          
-          $foundLink = $false
-          $startTime = Get-Date
-          
-          while ($job.State -eq 'Running' -and ((Get-Date) - $startTime).TotalMinutes -lt 5) {
-              # Stream new output
-              $output = Receive-Job -Job $job -Keep | Select-Object -Skip 0 # Getting all, relying on console stream
-              # Ideally we consume, but -Keep lets us view history if needed. 
-              # Actually, Receive-Job without -Keep clears the buffer, which is perfect for a stream!
-              
-              Receive-Job -Job $job | ForEach-Object {
-                  $line = $_.ToString()
-                  Write-Host $line
-                  if ($line -match "https://login.tailscale.com") {
-                       $foundLink = $true
-                       Write-Host "`n🔥 FOUND AUTH LINK! 🔥"
-                  }
-              }
-              
-              if ($foundLink) { break }
-              Start-Sleep -Seconds 2
-          }
-          
-          # Post-Link cleanup or Wait
-          if ($foundLink) {
-              Write-Host "Link found. Waiting for you to click it..."
-              # Just wait for IP now
-              $retries = 0
-              while ($retries -lt 60) {
-                  $tsIP = & $tsPath ip -4
-                  if ($tsIP) { break }
-                  Start-Sleep -Seconds 5
-                  $retries++
-              }
-          }
-          
-          Stop-Job -Job $job
-          Remove-Job -Job $job
-          
-          $tsIP = & $tsPath ip -4
-          if ($tsIP) {
-               echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
-               Write-Host "✅ Connected! IP: $tsIP"
-          } else {
-               Write-Warning "Tailscale did not connect or timed out."
-          }
+          # Sleep to let it initialize and print the link
+          Start-Sleep -Seconds 15
 
       - name: Verify RDP Accessibility
         run: |
-          Write-Host "Tailscale IP: $env:TAILSCALE_IP"
-          $testResult = Test-NetConnection -ComputerName $env:TAILSCALE_IP -Port 3389
-          if (-not $testResult.TcpTestSucceeded) {
-              Write-Error "TCP connection to RDP port 3389 failed"
-              exit 1
-          }
-          Write-Host "TCP connectivity successful!"
+          Write-Host "Use the Playit.gg Dashboard/Link to connect."
+          Write-Host "Local RDP is listening on port 3389."
 
       - name: Maintain Connection
         run: |
-          $ownershipNotice = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("Cj09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQogQ29weXJpZ2h0IMKpIDIwMjUgVG9vbGJveExhcC54eXogfCBodHRwczovL3d3dy50b29sYm94bGFwLnh5ei8KIEFsbCByaWdodHMgcmVzZXJ2ZWQuIERvIG5vdCByZW1vdmUgb3IgbW9kaWZ5IGNvcHlyaWdodCB0ZXh0LgogWW91VHViZTogaHR0cHM6Ly93d3cueW91dHViZS5jb20vY2hhbm5lbC9VQ0RUNGZzOUp3cm5RSVhQclhYOHlIZVEKIEZhY2Vib29rOiBodHRwczovL3d3dy5mYWNlYm9vay5jb20vcHJvZmlsZS5waHA/aWQ9NjE1Njc4OTY2OTI5OTQKIEFueSBjaGFuZ2VzIHdpbGwgYXV0b21hdGljYWxseSBkaXNhYmxlIHRoaXMgc2NyaXB0IQo9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0K"))
+          $ownershipNotice = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("Cj09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQogQ29weXJpZ2h0IMKpIDIwMjUgVG9vbGJveExhcC54eXogfCBodHRwczovL3d3dy50b29sYm94bGFwLnN5ei8KIEFsbCByaWdodHMgcmVzZXJ2ZWQuIERvIG5vdCByZW1vdmUgb3IgbW9kaWZ5IGNvcHlyaWdodCB0ZXh0LgogWW91VHViZTogaHR0cHM6Ly93d3cueW91dHViZS5jb20vY2hhbm5lbC9VQ0RUNGZzOUp3cm5RSVhQclhYOHlIZVEKIEZhY2Vib29rOiBodHRwczovL3d3dy5mYWNlYm9vay5jb20vcHJvZmlsZS5waHA/aWQ9NjE1Njc4OTY2OTI5OTQKIEFueSBjaGFuZ2VzIHdpbGwgYXV0b21hdGljYWxseSBkaXNhYmxlIHRoaXMgc2NyaXB0IQo9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0K"))
           Write-Host $ownershipNotice
-          Write-Host "`n=== RDP ACCESS ==="
-          Write-Host "Address: $env:TAILSCALE_IP"
+          Write-Host "`n=== RDP ACCESS VIA PLAYIT.GG ==="
+          Write-Host "Address: (Check Playit Dashboard / Link Above)"
           Write-Host "Username: TOOLBOXLAP"
           Write-Host "Password: admin@123"
           Write-Host "Powered by https://www.toolboxlap.xyz/"
           Write-Host "========= All rights reserved =========`n"
           while ($true) {
-              Write-Host "[$(Get-Date)] RDP Active - Use Ctrl+C in workflow to terminate"
+              Write-Host "[$(Get-Date)] RDP Active - Check Playit.gg for Connection Info - Use Ctrl+C to terminate"
               Start-Sleep -Seconds 300
           }
