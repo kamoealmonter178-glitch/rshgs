@@ -63,6 +63,17 @@ jobs:
           foreach (`$key in `$map.Keys) {
               Set-ItemProperty -Path `$regPath -Name `$key -Value `$map[`$key] -Type ExpandString -Force
           }
+          
+          # Performance Tweaks: Optimize for Speed over Quality
+          `$desktop = 'HKCU:\Control Panel\Desktop'
+          if (-not (Test-Path `$desktop)) { New-Item -Path `$desktop -Force }
+          # 1. Disable Wallpaper & Theming
+          Set-ItemProperty -Path `$desktop -Name "Wallpaper" -Value "" -Force
+          Set-ItemProperty -Path `$desktop -Name "VisualizeVisualStyles" -Value 0 -Force
+          # 2. Disable Font Smoothing (ClearType)
+          Set-ItemProperty -Path `$desktop -Name "FontSmoothing" -Value "0" -Force
+          # 3. Disable Full Window Dragging
+          Set-ItemProperty -Path `$desktop -Name "DragFullWindows" -Value "0" -Force
           "@
           Set-Content -Path "C:\Redirect-Profile.ps1" -Value $scriptContent
 
