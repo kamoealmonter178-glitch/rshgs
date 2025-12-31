@@ -253,16 +253,27 @@ jobs:
           C:\ProgramData\chocolatey\bin\rclone.exe about mega2: --config "D:\PortableSystem\rclone.conf" >nul 2>&1
           C:\ProgramData\chocolatey\bin\rclone.exe about mega3: --config "D:\PortableSystem\rclone.conf" >nul 2>&1
           echo [Warm Up] Done. Starting Sync...
+          echo [Warm Up] Done. Starting Sync...
           echo.
           echo ===================================================
-          echo PHASE 1: User Profile (Desktop, Docs, AppData...)
+          echo PHASE 1: Registry Backup (Settings & Keys)
+          echo ===================================================
+          if not exist "D:\PortableSystem\Registry" mkdir "D:\PortableSystem\Registry"
+          echo [Exporting] HKCU (User Settings)...
+          reg export HKCU "D:\PortableSystem\Registry\HKCU.reg" /y >nul 2>&1
+          echo [Exporting] HKLM\Software (Program Keys)...
+          reg export "HKLM\SOFTWARE" "D:\PortableSystem\Registry\HKLM_Software.reg" /y >nul 2>&1
+          
+          echo.
+          echo ===================================================
+          echo PHASE 2: User Profile (Desktop, Docs, AppData...)
           echo ===================================================
           echo WARNING: This will DELETE files on Cloud that are not on this PC.
           C:\ProgramData\chocolatey\bin\rclone.exe sync D:\PortableSystem splitter: --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --exclude "*.bat" --no-update-modtime
           
           echo.
           echo ===================================================
-          echo PHASE 2: System Programs (Program Files & Data)
+          echo PHASE 3: System Programs (Program Files & Data)
           echo ===================================================
           echo Excluding Windows/Microsoft system files...
           
@@ -299,6 +310,17 @@ jobs:
           C:\ProgramData\chocolatey\bin\rclone.exe copy "splitter:Backup/Program Files" "C:\Program Files" --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --ignore-errors --no-update-modtime
           C:\ProgramData\chocolatey\bin\rclone.exe copy "splitter:Backup/Program Files (x86)" "C:\Program Files (x86)" --transfers=16 --checkers=32 -v --config "D:\PortableSystem\rclone.conf" --ignore-errors --no-update-modtime
           
+          echo.
+          echo [Restore] Registry Keys...
+          if exist "D:\PortableSystem\Registry\HKCU.reg" (
+              echo Importing User Settings...
+              reg import "D:\PortableSystem\Registry\HKCU.reg" >nul 2>&1
+          )
+          if exist "D:\PortableSystem\Registry\HKLM_Software.reg" (
+              echo Importing Program Keys (Errors Expected on Locked Keys)...
+              reg import "D:\PortableSystem\Registry\HKLM_Software.reg" >nul 2>&1
+          )
+
           echo ✅ Restore Complete!
           pause
           "@
