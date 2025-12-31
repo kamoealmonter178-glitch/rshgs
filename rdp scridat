@@ -354,59 +354,59 @@ jobs:
            echo - gemrc/**>> "%EXLIST%"
            echo - Temp/**>> "%EXLIST%"
            echo - Windows/**>> "%EXLIST%"
+           echo - WSL/**>> "%EXLIST%"
+           echo - wsl/**>> "%EXLIST%"
           
-          echo.
-          echo ===================================================
-          
-          echo.
-          echo ===================================================
-          echo PHASE 2: User Profile (Desktop, Docs, AppData...)
-          echo ===================================================
-          echo WARNING: This will DELETE files on Cloud that are not on this PC.
-          C:\ProgramData\chocolatey\bin\rclone.exe sync D:\PortableSystem splitter: --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --exclude "*.bat" --no-update-modtime
-          
-          echo.
-          echo ===================================================
-          echo PHASE 3: System Programs (Program Files and Data)
-          echo ===================================================
-          echo Excluding folders listed in D:\PortableSystem\excludes.txt...
+@echo off
+echo ===================================================
+echo   RDP PERMANENT - FIXED VERSION
+echo   WSL BLOCKED | NO BLOATWARE | NO REGISTRY
+echo ===================================================
 
-          echo [Syncing] ProgramData...
-          echo [Syncing] ProgramData...
-          C:\ProgramData\chocolatey\bin\rclone.exe sync C:\ProgramData splitter:Backup/ProgramData --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --filter-from "D:\PortableSystem\excludes.txt" --no-update-modtime --ignore-errors
-          
-          echo [Syncing] Program Files...
-          C:\ProgramData\chocolatey\bin\rclone.exe sync "C:\Program Files" "splitter:Backup/Program Files" --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --filter-from "D:\PortableSystem\excludes.txt" --no-update-modtime --ignore-errors
-          
-          echo [Syncing] Program Files (x86)...
-          C:\ProgramData\chocolatey\bin\rclone.exe sync "C:\Program Files (x86)" "splitter:Backup/Program Files (x86)" --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --filter-from "D:\PortableSystem\excludes.txt" --no-update-modtime --ignore-errors
+echo [PHASE 1] USER PROFILE (Desktop, Docs...)
+echo ---------------------------------------
+C:\ProgramData\chocolatey\bin\rclone.exe sync D:\PortableSystem splitter: --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --exclude "*.bat" --no-update-modtime
 
-          echo.
-          echo ===================================================
-          echo PHASE 4: Google Chrome Data (Bookmarks/History)
-          echo ===================================================
-          echo [Syncing] Chrome User Data...
-          C:\ProgramData\chocolatey\bin\rclone.exe sync "%LOCALAPPDATA%\Google\Chrome\User Data" splitter:Backup/ChromeData --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --no-update-modtime --ignore-errors
-          
-          echo.
-          echo ✅ Full System Backup Complete!
-          pause
-          "@
+echo.
+echo [PHASE 2] CLEAN SYSTEM BACKUP (Exclusions Active)
+echo ---------------------------------------
+echo [Syncing] ProgramData (No Bloatware)...
+C:\ProgramData\chocolatey\bin\rclone.exe sync C:\ProgramData splitter:Backup/ProgramData --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --filter-from "D:\PortableSystem\excludes.txt" --exclude "WSL/**" --exclude "wsl/**" --no-update-modtime --ignore-errors
+
+echo [Syncing] Program Files (WSL BLOCKED)...
+C:\ProgramData\chocolatey\bin\rclone.exe sync "C:\Program Files" "splitter:Backup/Program Files" --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --filter-from "D:\PortableSystem\excludes.txt" --exclude "WSL/**" --exclude "wsl/**" --no-update-modtime --ignore-errors
+
+echo [Syncing] Program Files (x86) (WSL BLOCKED)...
+C:\ProgramData\chocolatey\bin\rclone.exe sync "C:\Program Files (x86)" "splitter:Backup/Program Files (x86)" --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --filter-from "D:\PortableSystem\excludes.txt" --exclude "WSL/**" --exclude "wsl/**" --no-update-modtime --ignore-errors
+
+echo.
+echo [PHASE 3] GOOGLE CHROME
+echo ---------------------------------------
+C:\ProgramData\chocolatey\bin\rclone.exe sync "%LOCALAPPDATA%\Google\Chrome\User Data" splitter:Backup/ChromeData --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --no-update-modtime --ignore-errors
+
+echo.
+echo ✅ ALL DONE.
+pause
+"@
           Set-Content -Path "$portableRoot\Desktop\Upload-To-Cloud.bat" -Value $uploadScript
           
           # Schedule Auto-Backup (Zero Resource Usage)
           # Trigger: EXACTLY 5 Hours from NOW (Server Start).
           # This protects against the 6-hour GitHub Actions timeout.
           try {
-              $action = New-ScheduledTaskAction -Execute "$portableRoot\Desktop\Upload-To-Cloud.bat"
-              $triggerTime = (Get-Date).AddHours(5)
-              $trigger = New-ScheduledTaskTrigger -Once -At $triggerTime
-              $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
-              $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
-              Register-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings $settings -TaskName "MegaHubAutoBackup" -Description "Auto Sync to Cloud at T+5h" -Force
-              Write-Host "Auto-Backup Scheduled for $triggerTime (Server Shutdown Protection)."
-          } catch {
-              Write-Warning "Could not schedule Auto-Backup task."
+         try {
+    # Run VISIBLY (Pop-up) to alert user
+    $action = New-ScheduledTaskAction -Execute "$portableRoot\Desktop\Upload-To-Cloud.bat"
+    $triggerTime = (Get-Date).AddHours(5)
+    $trigger = New-ScheduledTaskTrigger -Once -At $triggerTime
+    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
+    
+    # Register without Principal (defaults to current user)
+    Register-ScheduledTask -Action $action -Trigger $trigger -Settings $settings -TaskName "MegaHubAutoBackup" -Description "Visible Auto-Backup T+5h" -Force
+    Write-Host "Auto-Backup Scheduled for $triggerTime (Visible Mode)."
+} catch {
+    Write-Warning "Could not schedule Auto-Backup task."
+}
           }
 
           # Create 'Download From Cloud' (Copy Remote -> Local)
