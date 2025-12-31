@@ -477,66 +477,61 @@ jobs:
           Write-Host "Starting Tailscale..."
           Write-Host "👉 PLEASE CHECK THE LOGS BELOW FOR THE AUTHENTICATION LINK 👈"
           
-          $logOut = "ts_out.log"
-          $logErr = "ts_err.log"
-          $argList = "up --hostname=gh-runner-$env:GITHUB_RUN_ID --accept-routes --advertise-exit-node --force-reauth"
+          # "PowerShell Job" Method: The most robust way to stream async output without file locks.
+          # Start-Job runs in a separate process, Receive-Job streams the output buffer.
           
-          # Start Tailscale in background, redirecting output to SEPARATE files (Crucial!)
-          $p = Start-Process -FilePath "$env:ProgramFiles\Tailscale\tailscale.exe" -ArgumentList $argList -RedirectStandardOutput $logOut -RedirectStandardError $logErr -PassThru
+          $tsPath = "$env:ProgramFiles\Tailscale\tailscale.exe"
+          $tsArgs = "up --hostname=gh-runner-$env:GITHUB_RUN_ID --accept-routes --advertise-exit-node --force-reauth"
           
-          $lastLenOut = 0
-          $lastLenErr = 0
+          $job = Start-Job -ScriptBlock { 
+              param($path, $args)
+              & $path $args 2>&1 
+          } -ArgumentList $tsPath, $tsArgs
+          
           $foundLink = $false
+          $startTime = Get-Date
           
-          while (-not $p.HasExited) {
-              # 1. Check Standard Output
-              if (Test-Path $logOut) {
-                  $lines = @(Get-Content $logOut)
-                  if ($lines.Count -gt $lastLenOut) {
-                      for ($k = $lastLenOut; $k -lt $lines.Count; $k++) { 
-                          Write-Host "[OUT] $($lines[$k])"
-                          if ($lines[$k] -match "https://login.tailscale.com") { $foundLink = $true }
-                      }
-                      $lastLenOut = $lines.Count
+          while ($job.State -eq 'Running' -and ((Get-Date) - $startTime).TotalMinutes -lt 5) {
+              # Stream new output
+              $output = Receive-Job -Job $job -Keep | Select-Object -Skip 0 # Getting all, relying on console stream
+              # Ideally we consume, but -Keep lets us view history if needed. 
+              # Actually, Receive-Job without -Keep clears the buffer, which is perfect for a stream!
+              
+              Receive-Job -Job $job | ForEach-Object {
+                  $line = $_.ToString()
+                  Write-Host $line
+                  if ($line -match "https://login.tailscale.com") {
+                       $foundLink = $true
+                       Write-Host "`n🔥 FOUND AUTH LINK! 🔥"
                   }
               }
               
-              # 2. Check Standard Error (Link usually hides here)
-              if (Test-Path $logErr) {
-                  $lines = @(Get-Content $logErr)
-                  if ($lines.Count -gt $lastLenErr) {
-                      for ($k = $lastLenErr; $k -lt $lines.Count; $k++) { 
-                          Write-Host "[ERR] $($lines[$k])"
-                          if ($lines[$k] -match "https://login.tailscale.com") { $foundLink = $true }
-                      }
-                      $lastLenErr = $lines.Count
-                  }
-              }
-              
-              # Exit loop if we found the link (optional, or keep streaming)
-              if ($foundLink) { 
-                 Write-Host "`n✅ LINK FOUND ABOVE! Waiting for connection...`n"
-                 break 
-              }
-              
+              if ($foundLink) { break }
               Start-Sleep -Seconds 2
           }
           
-          # Authenticated Check
-          $tsIP = $null
-          $retries = 0
-          while (-not $tsIP -and $retries -lt 30) {
-              $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
-              if ($ip) { $tsIP = $ip }
-              Start-Sleep -Seconds 5
-              $retries++
+          # Post-Link cleanup or Wait
+          if ($foundLink) {
+              Write-Host "Link found. Waiting for you to click it..."
+              # Just wait for IP now
+              $retries = 0
+              while ($retries -lt 60) {
+                  $tsIP = & $tsPath ip -4
+                  if ($tsIP) { break }
+                  Start-Sleep -Seconds 5
+                  $retries++
+              }
           }
           
+          Stop-Job -Job $job
+          Remove-Job -Job $job
+          
+          $tsIP = & $tsPath ip -4
           if ($tsIP) {
                echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
                Write-Host "✅ Connected! IP: $tsIP"
           } else {
-               Write-Warning "Tailscale did not connect in time. Check logs."
+               Write-Warning "Tailscale did not connect or timed out."
           }
 
       - name: Verify RDP Accessibility
