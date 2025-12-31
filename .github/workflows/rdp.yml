@@ -477,21 +477,58 @@ jobs:
           Write-Host "Starting Tailscale..."
           Write-Host "👉 PLEASE CHECK THE LOGS BELOW FOR THE AUTHENTICATION LINK 👈"
           
-          # "Native Console Sharing" Method
-          # We start Tailscale without a new window, sharing the current console output.
-          # This allows the link to appear directly in the logs.
-          $tsPath = "$env:ProgramFiles\Tailscale\tailscale.exe"
-          $args = "up --hostname=gh-runner-$env:GITHUB_RUN_ID --accept-routes --advertise-exit-node --force-reauth"
+          $logOut = "ts_out.log"
+          $logErr = "ts_err.log"
+          $argList = "up --hostname=gh-runner-$env:GITHUB_RUN_ID --accept-routes --advertise-exit-node --force-reauth"
           
-          # Start process in background but SHARE the console (NoNewWindow)
-          $p = Start-Process -FilePath $tsPath -ArgumentList $args -NoNewWindow -PassThru
+          # Start Tailscale in background, redirecting output to SEPARATE files (Crucial!)
+          $p = Start-Process -FilePath "$env:ProgramFiles\Tailscale\tailscale.exe" -ArgumentList $argList -RedirectStandardOutput $logOut -RedirectStandardError $logErr -PassThru
           
-          # Wait gently for the user to authenticate (Monitor IP)
+          $lastLenOut = 0
+          $lastLenErr = 0
+          $foundLink = $false
+          
+          while (-not $p.HasExited) {
+              # 1. Check Standard Output
+              if (Test-Path $logOut) {
+                  $lines = @(Get-Content $logOut)
+                  if ($lines.Count -gt $lastLenOut) {
+                      for ($k = $lastLenOut; $k -lt $lines.Count; $k++) { 
+                          Write-Host "[OUT] $($lines[$k])"
+                          if ($lines[$k] -match "https://login.tailscale.com") { $foundLink = $true }
+                      }
+                      $lastLenOut = $lines.Count
+                  }
+              }
+              
+              # 2. Check Standard Error (Link usually hides here)
+              if (Test-Path $logErr) {
+                  $lines = @(Get-Content $logErr)
+                  if ($lines.Count -gt $lastLenErr) {
+                      for ($k = $lastLenErr; $k -lt $lines.Count; $k++) { 
+                          Write-Host "[ERR] $($lines[$k])"
+                          if ($lines[$k] -match "https://login.tailscale.com") { $foundLink = $true }
+                      }
+                      $lastLenErr = $lines.Count
+                  }
+              }
+              
+              # Exit loop if we found the link (optional, or keep streaming)
+              if ($foundLink) { 
+                 Write-Host "`n✅ LINK FOUND ABOVE! Waiting for connection...`n"
+                 break 
+              }
+              
+              Start-Sleep -Seconds 2
+          }
+          
+          # Authenticated Check
           $tsIP = $null
           $retries = 0
-          while (-not $tsIP -and $retries -lt 60) {
+          while (-not $tsIP -and $retries -lt 30) {
+              $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+              if ($ip) { $tsIP = $ip }
               Start-Sleep -Seconds 5
-              $tsIP = & $tsPath ip -4
               $retries++
           }
           
@@ -499,8 +536,7 @@ jobs:
                echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
                Write-Host "✅ Connected! IP: $tsIP"
           } else {
-               Write-Warning "Tailscale did not connect in time (5 minutes)."
-               # Don't exit 1, maybe they authenticated late.
+               Write-Warning "Tailscale did not connect in time. Check logs."
           }
 
       - name: Verify RDP Accessibility
