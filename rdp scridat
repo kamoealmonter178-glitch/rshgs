@@ -350,7 +350,7 @@ jobs:
            echo gemrc
            echo Temp/**
            echo Windows/**
-          ) | Out-File -Encoding ASCII "D:\PortableSystem\excludes.txt"
+          ) > "D:\PortableSystem\excludes.txt"
           
           echo.
           echo ===================================================
