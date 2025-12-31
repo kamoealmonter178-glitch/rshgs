@@ -269,6 +269,90 @@ jobs:
           echo [Preparation] Closing Chrome to release database locks...
           taskkill /F /IM chrome.exe /T >nul 2>&1
           
+          :: ==========================================
+          :: GENERATE EXCLUSION LIST (User Defined)
+          :: ==========================================
+          (
+           echo - /7-Zip/**
+           echo - /Amazon/**
+           echo - /Android/**
+           echo - /Application Verifier/**
+           echo - /Azure Cosmos DB Emulator/**
+           echo - /CMake/**
+           echo - /Common Files/**
+           echo - /dotnet/**
+           echo - /Git/**
+           echo - /GitHub CLI/**
+           echo - /Google/**
+           echo - /Hyper-V/**
+           echo - /IIS/**
+           echo - /IIS Express/**
+           echo - /ImageMagick*/**
+           echo - /Internet Explorer/**
+           echo - /LLVM/**
+           echo - /Microsoft/**
+           echo - /Microsoft*/**
+           echo - /ModifiableWindowsApps/**
+           echo - /MongoDB/**
+           echo - /mongosh/**
+           echo - /Mozilla Firefox/**
+           echo - /MSBuild/**
+           echo - /MySQL/**
+           echo - /nodejs/**
+           echo - /OpenSSL/**
+           echo - /PackageManagement/**
+           echo - /PostgreSQL/**
+           echo - /PowerShell/**
+           echo - /R/**
+           echo - /Reference Assemblies/**
+           echo - /Tailscale/**
+           echo - /Unity Hub/**
+           echo - /VS2010Schemas/**
+           echo - /VS2012Schemas/**
+           echo - /Windows Defender/**
+           echo - /Windows Defender*/**
+           echo - /Windows Mail/**
+           echo - /Windows Media Player/**
+           echo - /Windows NT/**
+           echo - /Windows Photo Viewer/**
+           echo - /WindowsPowerShell/**
+           echo - /HTML Help Workshop/**
+           echo - /Inno Setup 6/**
+           echo - /Nuget/**
+           echo - /Open XML SDK/**
+           echo - /pipx/**
+           echo - /pipx_bin/**
+           echo - /sbt/**
+           echo - /Visual Studio/**
+           echo - /Windows Application Driver/**
+           echo - /Windows Kits/**
+           echo - /WiX Toolset v3.14/**
+           echo - /chocolatey/**
+           echo - /ChocolateyHttpCache/**
+           echo - /dbg/**
+           echo - /dftmp/**
+           echo - /docker/**
+           echo - /GitHub/**
+           echo - /kind/**
+           echo - /m2/**
+           echo - /Microsoft DevDiv/**
+           echo - /Microsoft Service Fabric/**
+           echo - /Mozilla*/**
+           echo - /Package Cache/**
+           echo - /Packages/**
+           echo - /regid*/**
+           echo - /runner/**
+           echo - /shimgen/**
+           echo - /SoftwareDistribution/**
+           echo - /ssh/**
+           echo - /USOPrivate/**
+           echo - /USOShared/**
+           echo - /Windows App Certification Kit/**
+           echo - /gemrc
+           echo - /Temp/**
+           echo - /Windows/**
+          ) > "D:\PortableSystem\excludes.txt"
+          
           echo.
           echo ===================================================
           echo PHASE 1: Registry Backup (Settings and Keys)
