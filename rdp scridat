@@ -271,7 +271,7 @@ jobs:
           
           echo.
           echo ===================================================
-          echo PHASE 1: Registry Backup (Settings & Keys)
+          echo PHASE 1: Registry Backup (Settings and Keys)
           echo ===================================================
           if not exist "D:\PortableSystem\Registry" mkdir "D:\PortableSystem\Registry"
           echo [Exporting] HKCU (User Settings)...
@@ -288,20 +288,18 @@ jobs:
           
           echo.
           echo ===================================================
-          echo PHASE 3: System Programs (Program Files & Data)
+          echo PHASE 3: System Programs (Program Files and Data)
           echo ===================================================
-          echo Excluding Windows/Microsoft system files and heavy Dev Tools...
-          
-          set "EXCLUDES=--exclude "Microsoft/**" --exclude "Windows/**" --exclude "Packages/**" --exclude "Temp/**" --exclude "USOPrivate/**" --exclude "Windows Defender/**" --exclude "chocolatey/lib/**" --exclude "Package Cache/**" --exclude "Microsoft Service Fabric/**" --exclude "Docker/**" --exclude "USOShared/**" --exclude "Android/**" --exclude "Microsoft Visual Studio*/**" --exclude "Microsoft SDKs/**" --exclude "dotnet/**" --exclude "Microsoft SQL Server/**" --exclude "Windows Kits/**" --exclude "Unity Hub/**" --exclude "SoftwareDistribution/**" --exclude "chocolateyHttpCache/**" --exclude "IIS*/**" --exclude "Reference Assemblies/**""
+          echo Excluding folders listed in D:\PortableSystem\excludes.txt...
 
           echo [Syncing] ProgramData...
-          C:\ProgramData\chocolatey\bin\rclone.exe sync C:\ProgramData splitter:Backup/ProgramData --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" %EXCLUDES% --no-update-modtime --ignore-errors
+          C:\ProgramData\chocolatey\bin\rclone.exe sync C:\ProgramData splitter:Backup/ProgramData --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --filter-from "D:\PortableSystem\excludes.txt" --no-update-modtime --ignore-errors
           
           echo [Syncing] Program Files...
-          C:\ProgramData\chocolatey\bin\rclone.exe sync "C:\Program Files" "splitter:Backup/Program Files" --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" %EXCLUDES% --no-update-modtime --ignore-errors
+          C:\ProgramData\chocolatey\bin\rclone.exe sync "C:\Program Files" "splitter:Backup/Program Files" --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --filter-from "D:\PortableSystem\excludes.txt" --no-update-modtime --ignore-errors
           
           echo [Syncing] Program Files (x86)...
-          C:\ProgramData\chocolatey\bin\rclone.exe sync "C:\Program Files (x86)" "splitter:Backup/Program Files (x86)" --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" %EXCLUDES% --no-update-modtime --ignore-errors
+          C:\ProgramData\chocolatey\bin\rclone.exe sync "C:\Program Files (x86)" "splitter:Backup/Program Files (x86)" --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --filter-from "D:\PortableSystem\excludes.txt" --no-update-modtime --ignore-errors
 
           echo.
           echo ===================================================
