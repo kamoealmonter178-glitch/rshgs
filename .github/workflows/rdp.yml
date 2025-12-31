@@ -477,24 +477,23 @@ jobs:
           Write-Host "Starting Tailscale..."
           Write-Host "👉 PLEASE CHECK THE LOGS BELOW FOR THE AUTHENTICATION LINK 👈"
           
-          # "Stream Reader" Method: Redirect to file, then stream file to console in real-time.
-          # This bypasses the buffer that hides the link.
-          $logFile = "tailscale_log.txt"
+          # "Stream Reader" Method: Redirect to SEPARATE files to avoid lock error.
+          # Tailscale prints the Auth Link to STDERR, so we monitor that.
+          $logOut = "ts_out.log"
+          $logErr = "ts_err.log"
           
-          # Start Tailscale in background, writing to file
+          # Start Tailscale in background, split logs
           $argList = "up --hostname=gh-runner-$env:GITHUB_RUN_ID --accept-routes --advertise-exit-node --force-reauth"
-          $p = Start-Process -FilePath "$env:ProgramFiles\Tailscale\tailscale.exe" -ArgumentList $argList -RedirectStandardOutput $logFile -RedirectStandardError $logFile -PassThru
+          $p = Start-Process -FilePath "$env:ProgramFiles\Tailscale\tailscale.exe" -ArgumentList $argList -RedirectStandardOutput $logOut -RedirectStandardError $logErr -PassThru
           
           # Wait a moment for file creation
           Start-Sleep -Seconds 2
           
-          # Stream the log file to the console until the process exits or link is found
-          # Note: We use -Wait so it acts like 'tail -f'
-          Get-Content $logFile -Wait -Force | ForEach-Object {
+          # Stream the ERR log file (Link is here) to the console
+          Get-Content $logErr -Wait -Force | ForEach-Object {
               Write-Host $_
               if ($_ -match "https://login.tailscale.com") {
-                  # We found the link! Keep streaming for a bit then break if needed, 
-                  # but usually we just want to see it.
+                  # Link found! 
               }
               if ($p.HasExited) { break }
           }
