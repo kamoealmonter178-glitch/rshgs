@@ -477,48 +477,31 @@ jobs:
           Write-Host "Starting Tailscale..."
           Write-Host "👉 PLEASE CHECK THE LOGS BELOW FOR THE AUTHENTICATION LINK 👈"
           
-          # "Universal Bypass" Method: Use CMD to detach process and redirect output raw.
-          # PowerShell's Start-Process is too strict with file locks. CMD is cleaner here.
-          $logFile = "$env:TEMP\ts_auth.log"
-          if (Test-Path $logFile) { Remove-Item $logFile -Force }
-          
-          # Run Tailscale via CMD, redirecting BOTH stdout and stderr to the same file (2>&1)
-          # We use --authkey if provided, otherwise interactive.
+          # "Native Console Sharing" Method
+          # We start Tailscale without a new window, sharing the current console output.
+          # This allows the link to appear directly in the logs.
           $tsPath = "$env:ProgramFiles\Tailscale\tailscale.exe"
-          $cmdLine = "`"$tsPath`" up --hostname=gh-runner-$env:GITHUB_RUN_ID --accept-routes --advertise-exit-node --force-reauth > `"$logFile`" 2>&1"
+          $args = "up --hostname=gh-runner-$env:GITHUB_RUN_ID --accept-routes --advertise-exit-node --force-reauth"
           
-          # Start detached process
-          Start-Process cmd -ArgumentList "/c start /b $cmdLine" -WindowStyle Hidden
+          # Start process in background but SHARE the console (NoNewWindow)
+          $p = Start-Process -FilePath $tsPath -ArgumentList $args -NoNewWindow -PassThru
           
-          # Poll the file for the link
-          $foundLink = $false
+          # Wait gently for the user to authenticate (Monitor IP)
+          $tsIP = $null
           $retries = 0
-          while ($retries -lt 60) { # Wait up to 300 seconds (60 * 5s)
-              if (Test-Path $logFile) {
-                  $content = Get-Content $logFile
-                  if ($content) {
-                      # Output new lines only (simplified for display)
-                      Write-Host $content[-1] 
-                      
-                      if ($content -match "https://login.tailscale.com") {
-                          Write-Host "`n🔥 FOUND AUTH LINK! 🔥"
-                          $content | Select-String "https://login.tailscale.com" | ForEach-Object { Write-Host $_ }
-                          $foundLink = $true
-                          break
-                      }
-                  }
-              }
+          while (-not $tsIP -and $retries -lt 60) {
               Start-Sleep -Seconds 5
+              $tsIP = & $tsPath ip -4
               $retries++
           }
           
-          if (-not $foundLink) {
-              Write-Warning "Link not detected in logs yet. Printing full log dump:"
-              if (Test-Path $logFile) { Get-Content $logFile | Write-Host }
+          if ($tsIP) {
+               echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
+               Write-Host "✅ Connected! IP: $tsIP"
+          } else {
+               Write-Warning "Tailscale did not connect in time (5 minutes)."
+               # Don't exit 1, maybe they authenticated late.
           }
-          
-          $tsIP = & "$tsPath" ip -4
-          echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
 
       - name: Verify RDP Accessibility
         run: |
