@@ -290,9 +290,9 @@ jobs:
           echo ===================================================
           echo PHASE 3: System Programs (Program Files & Data)
           echo ===================================================
-          echo Excluding Windows/Microsoft system files...
+          echo Excluding Windows/Microsoft system files and heavy Dev Tools...
           
-          set "EXCLUDES=--exclude "Microsoft/**" --exclude "Windows/**" --exclude "Packages/**" --exclude "Temp/**" --exclude "USOPrivate/**" --exclude "Windows Defender/**" --exclude "chocolatey/lib/**" --exclude "Package Cache/**" --exclude "Microsoft Service Fabric/**" --exclude "Docker/**" --exclude "USOShared/**""
+          set "EXCLUDES=--exclude "Microsoft/**" --exclude "Windows/**" --exclude "Packages/**" --exclude "Temp/**" --exclude "USOPrivate/**" --exclude "Windows Defender/**" --exclude "chocolatey/lib/**" --exclude "Package Cache/**" --exclude "Microsoft Service Fabric/**" --exclude "Docker/**" --exclude "USOShared/**" --exclude "Android/**" --exclude "Microsoft Visual Studio*/**" --exclude "Microsoft SDKs/**" --exclude "dotnet/**" --exclude "Microsoft SQL Server/**" --exclude "Windows Kits/**" --exclude "Unity Hub/**" --exclude "SoftwareDistribution/**" --exclude "chocolateyHttpCache/**" --exclude "IIS*/**" --exclude "Reference Assemblies/**""
 
           echo [Syncing] ProgramData...
           C:\ProgramData\chocolatey\bin\rclone.exe sync C:\ProgramData splitter:Backup/ProgramData --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" %EXCLUDES% --no-update-modtime --ignore-errors
