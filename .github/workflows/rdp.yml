@@ -221,13 +221,21 @@ jobs:
                  
                  Write-Host "Restoring Chrome Data..."
                  taskkill /F /IM chrome.exe /T >nul 2>&1
-                 rclone copy splitter:Backup/ChromeData "$env:LOCALAPPDATA\Google\Chrome\User Data" --transfers=16 --checkers=32 -v --config "$portableRoot\rclone.conf" --ignore-errors --no-update-modtime
+                 # Check if ChromeData exists in cloud before trying to copy
+                 if (rclone lsd splitter:Backup/ --config "$portableRoot\rclone.conf" | Select-String "ChromeData") {
+                     rclone copy splitter:Backup/ChromeData "$env:LOCALAPPDATA\Google\Chrome\User Data" --transfers=16 --checkers=32 -v --config "$portableRoot\rclone.conf" --ignore-errors --no-update-modtime
+                 } else {
+                     Write-Warning "ChromeData backup not found in cloud. Skipping."
+                 }
               } else {
                  Write-Warning "First Run: No backup found in Cloud. Starting fresh."
               }
           } else {
               Write-Error "Cloud Config Missing!"
           }
+          
+          # Force clean exit to avoid failing the build on partial restores
+          exit 0
           
       - name: Create Upload Tool (Visible T+5h)
         run: |
