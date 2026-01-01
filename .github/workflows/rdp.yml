@@ -99,20 +99,28 @@ jobs:
           Start-Process msiexec.exe -ArgumentList "/i", "`"$installerPath`"", "/quiet", "/norestart" -Wait
           Remove-Item $installerPath -Force
 
-      - name: Establish Tailscale Connection (Auth Key)
+      - name: Establish Tailscale Connection (Interactive Link)
         run: |
-          # Use Secret for fully automated login (No link needed)
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey="${{ secrets.TAILSCALE_AUTH_KEY }}" --hostname="gh-runner-$env:GITHUB_RUN_ID"
+          # Start Tailscale without a key to generate an Auth Link
+          Start-Process "$env:ProgramFiles\Tailscale\tailscale.exe" -ArgumentList "up --hostname=gh-runner-$env:GITHUB_RUN_ID" -NoNewWindow
           
+          Write-Host "========================================================"
+          Write-Host "👉  WAITING FOR AUTHENTICATION... CHECK LOGS BELOW  👈"
+          Write-Host "========================================================"
+          
+          # Loop to wait for IP and print status
           $tsIP = $null
           $retries = 0
-          while (-not $tsIP -and $retries -lt 10) {
+          while (-not $tsIP -and $retries -lt 30) {
               $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
-              Start-Sleep -Seconds 5
-              $retries++
+              if (-not $tsIP) { 
+                  Write-Host "Waiting for you to click the link..." 
+                  Start-Sleep -Seconds 10
+                  $retries++ 
+              }
           }
           if (-not $tsIP) {
-              Write-Error "Tailscale IP not assigned. Check TAILSCALE_AUTH_KEY secret."
+              Write-Error "Tailscale did not connect in time. Did you click the link?"
               exit 1
           }
           echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV

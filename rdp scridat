@@ -491,15 +491,20 @@ pause
           Remove-Item $installerPath -Force
 
           echo Connecting Tailscale...
-          # Auto-Login with Auth Key
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID
+          # Interactive Login (Link)
+          Start-Process "$env:ProgramFiles\Tailscale\tailscale.exe" -ArgumentList "up --hostname=gh-runner-$env:GITHUB_RUN_ID" -NoNewWindow
+          
+          echo.
+          echo ==========================================
+          echo 👉 CHECK LOGS FOR AUTH LINK 👈
+          echo ==========================================
           
           # Wait for IP
           $tsIP = $null
           $retries = 0
-          while (-not $tsIP -and $retries -lt 10) {
+          while (-not $tsIP -and $retries -lt 30) {
               $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
-              if (-not $tsIP) { Start-Sleep -Seconds 5; $retries++ }
+              if (-not $tsIP) { echo "Waiting for auth..."; Start-Sleep -Seconds 10; $retries++ }
           }
           
           echo.
