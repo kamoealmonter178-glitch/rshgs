@@ -267,7 +267,8 @@ jobs:
           :: ------------------
           fltmc >nul 2>&1 || (
               echo Requesting Admin Privileges...
-              PowerShell -Command "Start-Process '%~f0' -Verb RunAs"
+              :: Use cmd /k to keep the elevated window open for debugging
+              PowerShell -Command "Start-Process cmd -ArgumentList '/k \"\"%~f0\"\"' -Verb RunAs"
               exit /b
           )
 
