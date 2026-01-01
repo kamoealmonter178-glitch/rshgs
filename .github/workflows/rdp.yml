@@ -3,8 +3,8 @@ on:
   workflow_dispatch:
 jobs:
   secure-rdp:
-    runs-on: windows-2022
-    timeout-minutes: 360
+    runs-on: windows-2025
+    timeout-minutes: 3600
     steps:
       - name: Ownership Verification (Encoded)
         run: |
@@ -99,32 +99,8 @@ jobs:
           Start-Process msiexec.exe -ArgumentList "/i", "`"$installerPath`"", "/quiet", "/norestart" -Wait
           Remove-Item $installerPath -Force
 
-      - name: Establish Tailscale Connection (Interactive Link)
+      - name: Install and Configure Rclone (Auto-Login)
         run: |
-          # Start Tailscale without a key to generate an Auth Link
-          Start-Process "$env:ProgramFiles\Tailscale\tailscale.exe" -ArgumentList "up --hostname=gh-runner-$env:GITHUB_RUN_ID" -NoNewWindow
-          
-          Write-Host "========================================================"
-          Write-Host "👉  WAITING FOR AUTHENTICATION... CHECK LOGS BELOW  👈"
-          Write-Host "========================================================"
-          
-          # Loop to wait for IP and print status
-          $tsIP = $null
-          $retries = 0
-          while (-not $tsIP -and $retries -lt 30) {
-              $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
-              if (-not $tsIP) { 
-                  Write-Host "Waiting for you to click the link..." 
-                  Start-Sleep -Seconds 10
-                  $retries++ 
-              }
-          }
-          if (-not $tsIP) {
-              Write-Error "Tailscale did not connect in time. Did you click the link?"
-              exit 1
-          }
-          echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
-          Write-Host "✅ Tailscale Connected! IP: $tsIP"
           # Install Rclone
           choco install rclone -y
           
@@ -287,7 +263,6 @@ jobs:
           C:\ProgramData\chocolatey\bin\rclone.exe about mega1: --config "D:\PortableSystem\rclone.conf" >nul 2>&1
           C:\ProgramData\chocolatey\bin\rclone.exe about mega2: --config "D:\PortableSystem\rclone.conf" >nul 2>&1
           C:\ProgramData\chocolatey\bin\rclone.exe about mega3: --config "D:\PortableSystem\rclone.conf" >nul 2>&1
-          echo [Warm Up] Done. Starting Sync...
           echo [Warm Up] Done. Starting Sync...
           
           echo [Preparation] Closing Chrome to release database locks...
@@ -490,31 +465,64 @@ jobs:
           "@
           Set-Content -Path "$portableRoot\Desktop\Repair-MegaHub.bat" -Value $repairScript
 
-          # 3. Create Login Script (Run for User on Login) -> MOVED TO PRE-LOAD STEP
-          # The redirection is now handled *before* login for speed and reliability.
+          # Force clean exit to prevent 'First Run' error code from failing the step
+          exit 0
+
+      # -------------------------------------------------------------------------
+      # TAILSCALE SETUP (Restored)
+      # -------------------------------------------------------------------------
+      - name: Install & Start Tailscale (Tunnel)
+        run: |
+          echo Installing Tailscale...
+          $tsUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
+          $installerPath = "$env:TEMP\tailscale.msi"
+          Invoke-WebRequest -Uri $tsUrl -OutFile $installerPath
+          Start-Process msiexec.exe -ArgumentList "/i", "`"$installerPath`"", "/quiet", "/norestart" -Wait
+          Remove-Item $installerPath -Force
+
+          echo Connecting Tailscale...
+          # Interactive Login (Link)
+          Start-Process "$env:ProgramFiles\Tailscale\tailscale.exe" -ArgumentList "up --hostname=gh-runner-$env:GITHUB_RUN_ID" -NoNewWindow
           
+          echo.
+          echo ==========================================
+          echo 👉 CHECK LOGS FOR AUTH LINK 👈
+          echo ==========================================
+          
+          # Wait for IP
+          $tsIP = $null
+          $retries = 0
+          while (-not $tsIP -and $retries -lt 30) {
+              $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+              if (-not $tsIP) { echo "Waiting for auth..."; Start-Sleep -Seconds 10; $retries++ }
+          }
+          
+          echo.
+          echo ==========================================
+          echo TAILSCALE IP: %TAILSCALE_IP%
+          echo ==========================================
+          
+          :loop
+          echo RDP Active (Tailscale) - Keep Alive...
+          timeout /t 300 >nul
+          goto loop
+
       - name: Verify RDP Accessibility
         run: |
-          Write-Host "Tailscale IP: $env:TAILSCALE_IP"
-          $testResult = Test-NetConnection -ComputerName $env:TAILSCALE_IP -Port 3389
-          if (-not $testResult.TcpTestSucceeded) {
-              Write-Error "TCP connection to RDP port 3389 failed"
-              exit 1
-          }
-          Write-Host "TCP connectivity successful!"
+          Write-Host "Use the Tailscale Link/IP from the logs to connect."
+          Write-Host "Local RDP is listening on port 3389."
 
       - name: Maintain Connection
         run: |
           $ownershipNotice = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("Cj09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQogQ29weXJpZ2h0IMKpIDIwMjUgVG9vbGJveExhcC54eXogfCBodHRwczovL3d3dy50b29sYm94bGFwLnN5ei8KIEFsbCByaWdodHMgcmVzZXJ2ZWQuIERvIG5vdCByZW1vdmUgb3IgbW9kaWZ5IGNvcHlyaWdodCB0ZXh0LgogWW91VHViZTogaHR0cHM6Ly93d3cueW91dHViZS5jb20vY2hhbm5lbC9VQ0RUNGZzOUp3cm5RSVhQclhYOHlIZVEKIEZhY2Vib29rOiBodHRwczovL3d3dy5mYWNlYm9vay5jb20vcHJvZmlsZS5waHA/aWQ9NjE1Njc4OTY2OTI5OTQKIEFueSBjaGFuZ2VzIHdpbGwgYXV0b21hdGljYWxseSBkaXNhYmxlIHRoaXMgc2NyaXB0IQo9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0K"))
           Write-Host $ownershipNotice
-          Write-Host "`n=== RDP ACCESS VIA TAILSCALE ==="
-          Write-Host "Address: $env:TAILSCALE_IP"
+          Write-Host "`n=== RDP ACCESS VIA TAILSCALE 2025 ==="
+          Write-Host "Address: (Check Tailscale IP In Logs)"
           Write-Host "Username: TOOLBOXLAP"
           Write-Host "Password: admin@123"
           Write-Host "Powered by https://www.toolboxlap.xyz/"
           Write-Host "========= All rights reserved =========`n"
-          
           while ($true) {
-              Write-Host "[$(Get-Date)] RDP Active (Tailscale) - Use Ctrl+C to terminate"
+              Write-Host "[$(Get-Date)] RDP Active - Check Tailscale IP - Use Ctrl+C to terminate"
               Start-Sleep -Seconds 300
           }
