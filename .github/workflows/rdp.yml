@@ -87,12 +87,35 @@ jobs:
           try {
               Start-Process powershell.exe -Credential $cred -ArgumentList "-ExecutionPolicy Bypass -File C:\Redirect-Profile.ps1" -LoadUserProfile -Wait
               Write-Host "Profile created and redirected successfully!"
-          } catch {
               Write-Warning "Profile pre-load/redirection minor issue."
           }
 
-      - name: Install and Configure Rclone (Auto-Login)
+      - name: Install Tailscale
         run: |
+          $tsUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
+          $installerPath = "$env:TEMP\tailscale.msi"
+          Invoke-WebRequest -Uri $tsUrl -OutFile $installerPath
+          Start-Process msiexec.exe -ArgumentList "/i", "`"$installerPath`"", "/quiet", "/norestart" -Wait
+          Remove-Item $installerPath -Force
+
+      - name: Establish Tailscale Connection (Auth Key)
+        run: |
+          # Use Secret for fully automated login (No link needed)
+          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID
+          
+          $tsIP = $null
+          $retries = 0
+          while (-not $tsIP -and $retries -lt 10) {
+              $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+              Start-Sleep -Seconds 5
+              $retries++
+          }
+          if (-not $tsIP) {
+              Write-Error "Tailscale IP not assigned. Check TAILSCALE_AUTH_KEY secret."
+              exit 1
+          }
+          echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
+          Write-Host "✅ Tailscale Connected! IP: $tsIP"
           # Install Rclone
           choco install rclone -y
           
@@ -461,54 +484,28 @@ jobs:
           # 3. Create Login Script (Run for User on Login) -> MOVED TO PRE-LOAD STEP
           # The redirection is now handled *before* login for speed and reliability.
           
-          # Force clean exit to prevent 'First Run' error code from failing the step
-          exit 0
-
-      # (Merged with Maintain Step)
-
-
-      - name: Maintain Connection & Playit.gg Tunnel
+      - name: Verify RDP Accessibility
         run: |
-          # -------------------------------------------------------------------------
-          # 1. SETUP & START PLAYIT.GG (Tunnel)
-          # -------------------------------------------------------------------------
-          Write-Host "Downloading Playit.gg Agent..."
-          # Force TLS 1.2
-          [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
-          
-          # Download
-          Invoke-WebRequest -Uri "https://github.com/playit-cloud/playit-agent/releases/download/v0.16.4/playit-windows-x86_64-signed.exe" -OutFile "playit.exe"
-          
-          Write-Host "Starting Playit.gg..."
-          Write-Host "👉 CHECK BELOW FOR THE CLAIM URL / LINK 👈"
-          Write-Host "=========================================="
-          
-          # Start Playit and keep it running in this session
-          $playitProcess = Start-Process -FilePath ".\playit.exe" -NoNewWindow -PassThru
-          
-          # Allow time for Claim URL to print
-          Start-Sleep -Seconds 20
-          
-          # -------------------------------------------------------------------------
-          # 2. MAINTAIN SESSION
-          # -------------------------------------------------------------------------
+          Write-Host "Tailscale IP: $env:TAILSCALE_IP"
+          $testResult = Test-NetConnection -ComputerName $env:TAILSCALE_IP -Port 3389
+          if (-not $testResult.TcpTestSucceeded) {
+              Write-Error "TCP connection to RDP port 3389 failed"
+              exit 1
+          }
+          Write-Host "TCP connectivity successful!"
+
+      - name: Maintain Connection
+        run: |
           $ownershipNotice = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("Cj09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQogQ29weXJpZ2h0IMKpIDIwMjUgVG9vbGJveExhcC54eXogfCBodHRwczovL3d3dy50b29sYm94bGFwLnN5ei8KIEFsbCByaWdodHMgcmVzZXJ2ZWQuIERvIG5vdCByZW1vdmUgb3IgbW9kaWZ5IGNvcHlyaWdodCB0ZXh0LgogWW91VHViZTogaHR0cHM6Ly93d3cueW91dHViZS5jb20vY2hhbm5lbC9VQ0RUNGZzOUp3cm5RSVhQclhYOHlIZVEKIEZhY2Vib29rOiBodHRwczovL3d3dy5mYWNlYm9vay5jb20vcHJvZmlsZS5waHA/aWQ9NjE1Njc4OTY2OTI5OTQKIEFueSBjaGFuZ2VzIHdpbGwgYXV0b21hdGljYWxseSBkaXNhYmxlIHRoaXMgc2NyaXB0IQo9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0K"))
           Write-Host $ownershipNotice
-          Write-Host "`n=== RDP ACCESS VIA PLAYIT.GG ==="
-          Write-Host "Address: (Check Playit Dashboard / Link Above)"
+          Write-Host "`n=== RDP ACCESS VIA TAILSCALE ==="
+          Write-Host "Address: $env:TAILSCALE_IP"
           Write-Host "Username: TOOLBOXLAP"
           Write-Host "Password: admin@123"
           Write-Host "Powered by https://www.toolboxlap.xyz/"
           Write-Host "========= All rights reserved =========`n"
           
           while ($true) {
-              Write-Host "[$(Get-Date)] RDP Active - Check Playit.gg for Connection Info - Use Ctrl+C to terminate"
-              
-              # Check if Playit is still running (Self-Healing)
-              if ($playitProcess.HasExited) {
-                  Write-Warning "Playit Agent died! Restarting..."
-                  $playitProcess = Start-Process -FilePath ".\playit.exe" -NoNewWindow -PassThru
-              }
-              
-              Start-Sleep -Seconds 30
+              Write-Host "[$(Get-Date)] RDP Active (Tailscale) - Use Ctrl+C to terminate"
+              Start-Sleep -Seconds 300
           }
