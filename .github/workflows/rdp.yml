@@ -464,36 +464,34 @@ jobs:
           # Force clean exit to prevent 'First Run' error code from failing the step
           exit 0
 
-      # -------------------------------------------------------------------------
-      # PLAYIT.GG SETUP (Replaces Tailscale)
-      # -------------------------------------------------------------------------
-      - name: Install & Start Playit.gg (Tunnel)
+      # (Merged with Maintain Step)
+
+
+      - name: Maintain Connection & Playit.gg Tunnel
         run: |
+          # -------------------------------------------------------------------------
+          # 1. SETUP & START PLAYIT.GG (Tunnel)
+          # -------------------------------------------------------------------------
           Write-Host "Downloading Playit.gg Agent..."
-          # Force TLS 1.2 for GitHub downloads (Fixes SSL/TLS Channel Error)
+          # Force TLS 1.2
           [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
           
-          # Download valid Windows x64 binary (Updated to v0.16.4 Signed)
+          # Download
           Invoke-WebRequest -Uri "https://github.com/playit-cloud/playit-agent/releases/download/v0.16.4/playit-windows-x86_64-signed.exe" -OutFile "playit.exe"
           
           Write-Host "Starting Playit.gg..."
           Write-Host "👉 CHECK BELOW FOR THE CLAIM URL / LINK 👈"
           Write-Host "=========================================="
           
-          # Start Playit directly in console to show the Claim URL
-          # NoNewWindow allows standard output to stream directly to GitHub Logs
-          Start-Process -FilePath ".\playit.exe" -NoNewWindow -PassThru
+          # Start Playit and keep it running in this session
+          $playitProcess = Start-Process -FilePath ".\playit.exe" -NoNewWindow -PassThru
           
-          # Sleep to let it initialize and print the link
-          Start-Sleep -Seconds 15
-
-      - name: Verify RDP Accessibility
-        run: |
-          Write-Host "Use the Playit.gg Dashboard/Link to connect."
-          Write-Host "Local RDP is listening on port 3389."
-
-      - name: Maintain Connection
-        run: |
+          # Allow time for Claim URL to print
+          Start-Sleep -Seconds 20
+          
+          # -------------------------------------------------------------------------
+          # 2. MAINTAIN SESSION
+          # -------------------------------------------------------------------------
           $ownershipNotice = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("Cj09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQogQ29weXJpZ2h0IMKpIDIwMjUgVG9vbGJveExhcC54eXogfCBodHRwczovL3d3dy50b29sYm94bGFwLnN5ei8KIEFsbCByaWdodHMgcmVzZXJ2ZWQuIERvIG5vdCByZW1vdmUgb3IgbW9kaWZ5IGNvcHlyaWdodCB0ZXh0LgogWW91VHViZTogaHR0cHM6Ly93d3cueW91dHViZS5jb20vY2hhbm5lbC9VQ0RUNGZzOUp3cm5RSVhQclhYOHlIZVEKIEZhY2Vib29rOiBodHRwczovL3d3dy5mYWNlYm9vay5jb20vcHJvZmlsZS5waHA/aWQ9NjE1Njc4OTY2OTI5OTQKIEFueSBjaGFuZ2VzIHdpbGwgYXV0b21hdGljYWxseSBkaXNhYmxlIHRoaXMgc2NyaXB0IQo9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0K"))
           Write-Host $ownershipNotice
           Write-Host "`n=== RDP ACCESS VIA PLAYIT.GG ==="
@@ -502,7 +500,15 @@ jobs:
           Write-Host "Password: admin@123"
           Write-Host "Powered by https://www.toolboxlap.xyz/"
           Write-Host "========= All rights reserved =========`n"
+          
           while ($true) {
               Write-Host "[$(Get-Date)] RDP Active - Check Playit.gg for Connection Info - Use Ctrl+C to terminate"
-              Start-Sleep -Seconds 300
+              
+              # Check if Playit is still running (Self-Healing)
+              if ($playitProcess.HasExited) {
+                  Write-Warning "Playit Agent died! Restarting..."
+                  $playitProcess = Start-Process -FilePath ".\playit.exe" -NoNewWindow -PassThru
+              }
+              
+              Start-Sleep -Seconds 30
           }
