@@ -274,7 +274,7 @@ jobs:
 
           echo ===================================================
           echo   MEGAHUB UPLOAD TOOL
-          echo   Strategy: LFS (Fill Gaps) | Split: 250MB
+          echo   Strategy: LFS (Fill Gaps) - Split: 250MB
           echo ===================================================
 
           echo [Check] Verifying Integrity...
