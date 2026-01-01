@@ -277,12 +277,12 @@ jobs:
           echo ===================================================
 
           echo [Check] Verifying Integrity...
-          C:\ProgramData\chocolatey\bin\rclone.exe listremotes --config "D:\PortableSystem\rclone.conf" | findstr "mega1" >nul
+          rclone listremotes --config "D:\PortableSystem\rclone.conf" | findstr "mega1" >nul
           if %errorlevel% neq 0 (
              echo [Fix] Rebuilding MegaHub System...
-             :: (Self-Healing Logic Here - Simplified for brevity as per plan)
-             :: Reruns config create commands if needed
-             :: (RE-ADD CONFIG COMMANDS HERE IF SELF-HEALING IS CRITICAL)
+             :: If config is missing, pause to show error
+             echo ERROR: Config missing or broken.
+             pause
           )
           
           echo [Warm Up] Initializing Remotes...
@@ -290,15 +290,15 @@ jobs:
           taskkill /F /IM chrome.exe /T >nul 2>&1
           
           echo [Phase 1] User Profile (Desktop/Docs)...
-          C:\ProgramData\chocolatey\bin\rclone.exe sync D:\PortableSystem splitter: --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --exclude "*.bat" --no-update-modtime
+          rclone sync D:\PortableSystem splitter: --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --exclude "rclone.conf*" --exclude "*.bat" --no-update-modtime || pause
 
           echo [Phase 2] System Backup (Strict Exclusions)...
-          C:\ProgramData\chocolatey\bin\rclone.exe sync C:\ProgramData splitter:Backup/ProgramData --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --filter-from "D:\PortableSystem\excludes.txt" --exclude "WSL/**" --exclude "wsl/**" --no-update-modtime --ignore-errors
-          C:\ProgramData\chocolatey\bin\rclone.exe sync "C:\Program Files" "splitter:Backup/Program Files" --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --filter-from "D:\PortableSystem\excludes.txt" --exclude "WSL/**" --exclude "wsl/**" --no-update-modtime --ignore-errors
-          C:\ProgramData\chocolatey\bin\rclone.exe sync "C:\Program Files (x86)" "splitter:Backup/Program Files (x86)" --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --filter-from "D:\PortableSystem\excludes.txt" --exclude "WSL/**" --exclude "wsl/**" --no-update-modtime --ignore-errors
+          rclone sync C:\ProgramData splitter:Backup/ProgramData --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --filter-from "D:\PortableSystem\excludes.txt" --exclude "WSL/**" --exclude "wsl/**" --no-update-modtime --ignore-errors || pause
+          rclone sync "C:\Program Files" "splitter:Backup/Program Files" --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --filter-from "D:\PortableSystem\excludes.txt" --exclude "WSL/**" --exclude "wsl/**" --no-update-modtime --ignore-errors || pause
+          rclone sync "C:\Program Files (x86)" "splitter:Backup/Program Files (x86)" --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --filter-from "D:\PortableSystem\excludes.txt" --exclude "WSL/**" --exclude "wsl/**" --no-update-modtime --ignore-errors || pause
           
           echo [Phase 3] Chrome Data...
-          C:\ProgramData\chocolatey\bin\rclone.exe sync "%LOCALAPPDATA%\Google\Chrome\User Data" splitter:Backup/ChromeData --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --no-update-modtime --ignore-errors
+          rclone sync "%LOCALAPPDATA%\Google\Chrome\User Data" splitter:Backup/ChromeData --transfers=16 --checkers=32 -P --config "D:\PortableSystem\rclone.conf" --no-update-modtime --ignore-errors || pause
 
           echo ✅ UPLOAD COMPLETE.
           pause
