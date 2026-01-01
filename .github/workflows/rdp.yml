@@ -87,6 +87,7 @@ jobs:
           try {
               Start-Process powershell.exe -Credential $cred -ArgumentList "-ExecutionPolicy Bypass -File C:\Redirect-Profile.ps1" -LoadUserProfile -Wait
               Write-Host "Profile created and redirected successfully!"
+          } catch {
               Write-Warning "Profile pre-load/redirection minor issue."
           }
 
