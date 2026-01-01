@@ -480,14 +480,15 @@ jobs:
           Start-Process msiexec.exe -ArgumentList "/i", "`"$installerPath`"", "/quiet", "/norestart" -Wait
           Remove-Item $installerPath -Force
 
-          echo Connecting Tailscale...
+
+          Write-Host "Connecting Tailscale..."
           # Interactive Login (Link)
           Start-Process "$env:ProgramFiles\Tailscale\tailscale.exe" -ArgumentList "up --hostname=gh-runner-$env:GITHUB_RUN_ID" -NoNewWindow
           
-          echo.
-          echo ==========================================
-          echo 👉 CHECK LOGS FOR AUTH LINK 👈
-          echo ==========================================
+          Write-Host ""
+          Write-Host "=========================================="
+          Write-Host "👉 CHECK LOGS FOR AUTH LINK 👈"
+          Write-Host "=========================================="
           
           # Wait for IP
           $tsIP = $null
